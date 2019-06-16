@@ -1,0 +1,9 @@
+
+
+public typedef i64 as Time;
+
+public struct TimeStep {
+    frameTime: Time;          /* time from last frame */
+    gameClock: Time;          /* current game clock */
+    frameTimeFraction: f64;   /* time from last frame in fractions of seconds */
+} 

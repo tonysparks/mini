@@ -1,0 +1,75 @@
+import "common";
+
+public struct Animation {
+    numberOfFrames: i32
+    elapsedTime: Time
+    frameTime: Time
+    currentFrame: i32
+    loop: bool
+    isPaused: bool
+} 
+
+public func animationUpdate(anim: Animation*, timeStep: TimeStep*) : i32 {
+    if(anim.isPaused) {
+        return anim.currentFrame;
+    }
+
+    anim.elapsedTime += timeStep.frameTime;
+
+    if(anim.elapsedTime > anim.frameTime) {
+        anim.elapsedTime -= anim.frameTime;
+
+        var desiredFrame = anim.currentFrame + 1;
+
+        if(!anim.loop && desiredFrame >= anim.numberOfFrames) {
+            desiredFrame = anim.numberOfFrames - 1;
+        }
+
+        animationSetCurrentFrame(anim, desiredFrame);
+    }
+
+    return anim.currentFrame;
+}
+
+public func animationPlay(anim: Animation*) {
+    anim.isPaused = false
+}
+
+public func animationStop(anim: Animation*) {
+    anim.isPaused = true
+    anim.elapsedTime = 0;
+    anim.currentFrame = 0;
+}
+
+public func animationPause(anim: Animation*) {
+    anim.isPaused = 1;
+}
+
+public func animationResume(anim: Animation*) {
+    anim.isPaused = 0;
+}
+
+public func animationReset(anim: Animation*) {
+    anim.elapsedTime = 0;
+    anim.currentFrame = 0;
+}
+
+public func animationIsPaused(anim: Animation*) : i32 {
+    return anim.isPaused;
+}
+
+public func animationIsDone(anim: Animation*) : i32 {
+    return !anim.loop && anim.currentFrame >= (anim.numberOfFrames - 1);
+}
+
+public func animationCurrentFrame(anim: Animation*) : i32 {
+    return anim.currentFrame;
+}
+
+public func animationNumberOfFrames(anim: Animation*) : i32 {
+    return anim.numberOfFrames;
+}
+
+public func animationSetCurrentFrame(anim: Animation*, frameNumber: i32) {
+    anim.currentFrame = frameNumber % anim.numberOfFrames;
+}
