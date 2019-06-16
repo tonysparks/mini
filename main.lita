@@ -1,0 +1,107 @@
+import "io";
+import "raylib";
+   
+
+func main(len: i32, args: char**) : i32 {
+    InitWindow(800, 450, "Testing!");
+    defer CloseWindow();
+    
+    InitAudioDevice();
+    defer CloseAudioDevice();
+    
+    // Load explosion sound
+    var fxBoom = LoadSound("../assets/boom.wav");
+    defer UnloadSound(fxBoom)
+
+    // Load explosion texture
+    var explosion = LoadTexture("../assets/explosion.png");
+    defer UnloadTexture(explosion)
+    
+    const NUM_FRAMES = 8;
+    const NUM_LINES = 6;
+    
+    // Init variables for animation
+    var frameWidth = explosion.width as (f32) / NUM_FRAMES as (f32);    // Sprite one frame rectangle width
+    var frameHeight = explosion.height as (f32) / NUM_LINES as (f32);   // Sprite one frame rectangle height
+    var currentFrame = 0;
+    var currentLine = 0;
+
+    var frameRec = Rectangle { 0.0, 0.0, frameWidth, frameHeight };
+    var position = Vector2{ 0.0, 0.0 };
+
+    var active = false;
+    var framesCounter = 0;
+
+    SetTargetFPS(120);
+    //-----------------
+    
+    var camera = Camera {
+        .position: Vector3{10.0,10.0,10.0},
+        .target: Vector3{0.0,0.0,0.0},
+        .up: Vector3{0.0,1.0,0.0},
+        .fovy: 45.0,
+        .type: CameraType.CAMERA_PERSPECTIVE
+    }
+    
+    SetCameraMode(camera, CameraMode.CAMERA_FREE);
+    SetTargetFPS(120);
+    SetMasterVolume(0.2)
+    
+    var pos = Vector2 { 140.0, 150.0 }
+    
+    while(!WindowShouldClose()) {
+        UpdateCamera(&camera);
+        
+        if(IsKeyReleased(KeyboardKey.KEY_UP)) {
+            pos.y += 1.0
+        }
+        else if(IsKeyReleased(KeyboardKey.KEY_DOWN)) {
+            pos.y -= 1.0
+        }
+        
+        // Check for mouse button pressed and activate explosion (if not active)
+        if (IsMouseButtonPressed(MouseButton.MOUSE_LEFT_BUTTON) && !active) {
+            position = GetMousePosition();
+            active = true;
+
+            position.x -= frameWidth/2.0;
+            position.y -= frameHeight/2.0;
+
+            PlaySound(fxBoom);
+        }
+
+        // Compute explosion animation frames
+        if (active) {
+            framesCounter += 1;
+
+            if (framesCounter > 2) {
+                currentFrame += 1;
+
+                if (currentFrame >= NUM_FRAMES) {
+                    currentFrame = 0;
+                    currentLine += 1;
+
+                    if (currentLine >= NUM_LINES) {
+                        currentLine = 0;
+                        active = false;
+                    }
+                }
+
+                framesCounter = 0;
+            }
+        }
+
+        frameRec.x = frameWidth*currentFrame as (f32);
+        frameRec.y = frameHeight*currentLine as (f32);
+        
+        BeginDrawing();
+            ClearBackground(Color { 255_u8, 255_u8, 255_u8, 255_u8});
+            DrawText("Hello World", pos.x as (i32), pos.y as (i32), 20, Color { 255_u8, 0_u8, 0_u8, 255_u8})
+            
+            // Draw explosion required frame rectangle
+            if (active) {
+                DrawTextureRec(explosion, frameRec, position, WHITE);
+            }
+        EndDrawing();
+    }    
+}
