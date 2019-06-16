@@ -1,6 +1,11 @@
 import "io";
 import "raylib";
+import "animation";
+import "common";
    
+
+func gameUpdate(timeStep: TimeStep*) {
+}
 
 func main(len: i32, args: char**) : i32 {
     InitWindow(800, 450, "Testing!");
@@ -21,13 +26,13 @@ func main(len: i32, args: char**) : i32 {
     const NUM_LINES = 6;
     
     // Init variables for animation
-    var frameWidth = explosion.width as (f32) / NUM_FRAMES as (f32);    // Sprite one frame rectangle width
-    var frameHeight = explosion.height as (f32) / NUM_LINES as (f32);   // Sprite one frame rectangle height
+    var frameWidth = explosion.width  / NUM_FRAMES;    // Sprite one frame rectangle width
+    var frameHeight = explosion.height / NUM_LINES;   // Sprite one frame rectangle height
     var currentFrame = 0;
     var currentLine = 0;
 
-    var frameRec = Rectangle { 0.0, 0.0, frameWidth, frameHeight };
-    var position = Vector2{ 0.0, 0.0 };
+    var frameRec = Rectangle { 0.0f, 0.0f, frameWidth, frameHeight };
+    var position = Vector2{ 0.0f, 0.0f };
 
     var active = false;
     var framesCounter = 0;
@@ -36,63 +41,87 @@ func main(len: i32, args: char**) : i32 {
     //-----------------
     
     var camera = Camera {
-        .position: Vector3{10.0,10.0,10.0},
-        .target: Vector3{0.0,0.0,0.0},
-        .up: Vector3{0.0,1.0,0.0},
-        .fovy: 45.0,
+        .position: Vector3{10.0f,10.0f,10.0f},
+        .target: Vector3{0.0f,0.0f,0.0f},
+        .up: Vector3{0.0f,1.0f,0.0f},
+        .fovy: 45.0f,
         .type: CameraType.CAMERA_PERSPECTIVE
     }
     
     SetCameraMode(camera, CameraMode.CAMERA_FREE);
     SetTargetFPS(120);
-    SetMasterVolume(0.2)
+    SetMasterVolume(0.2f)
     
-    var pos = Vector2 { 140.0, 150.0 }
+    var pos = Vector2 { 140.0f, 150.0f }
+    
+    //var currentTime : Time = GetTime() * 
+    var gameClock : Time = 0_i64;
+    
+    var explosionAnim = Animation {
+        .numberOfFrames: NUM_FRAMES * NUM_LINES,
+        .elapsedTime: 0,
+        .frameTime: 30_i64,
+        .currentFrame: 0,
+        .loop: false,
+        .isPaused: true,
+    }
+    
     
     while(!WindowShouldClose()) {
         UpdateCamera(&camera);
         
+        var frameTimeFraction:f32 = GetFrameTime()
+        var frameTime : Time = (frameTimeFraction * 1_000_i64) as (i64)
+        gameClock += frameTime
+                
+        var timeStep = TimeStep {
+            .frameTime: frameTime,
+            .gameClock: gameClock,
+            .frameTimeFraction: frameTimeFraction
+        }
+        
+      //  printf("timeStep: %llu %f %f\n", timeStep.frameTime, timeStep.frameTimeFraction, GetTime())
+        
+        var frame = 0
+        if (active) {
+            frame = animationUpdate(&explosionAnim, &timeStep)       
+            //printf("frame: %d\n", frame)
+            
+            if(animationIsDone(&explosionAnim)) {
+                active = false;
+                animationReset(&explosionAnim)
+            }
+        }
+        
+        
+        
+        
+        
         if(IsKeyReleased(KeyboardKey.KEY_UP)) {
-            pos.y += 1.0
+            pos.y += 1.0f
         }
         else if(IsKeyReleased(KeyboardKey.KEY_DOWN)) {
-            pos.y -= 1.0
+            pos.y -= 1.0f
         }
         
         // Check for mouse button pressed and activate explosion (if not active)
         if (IsMouseButtonPressed(MouseButton.MOUSE_LEFT_BUTTON) && !active) {
             position = GetMousePosition();
             active = true;
+            animationPlay(&explosionAnim)
 
-            position.x -= frameWidth/2.0;
-            position.y -= frameHeight/2.0;
+            position.x -= frameWidth/2.0f;
+            position.y -= frameHeight/2.0f;
 
             PlaySound(fxBoom);
         }
-
-        // Compute explosion animation frames
-        if (active) {
-            framesCounter += 1;
-
-            if (framesCounter > 2) {
-                currentFrame += 1;
-
-                if (currentFrame >= NUM_FRAMES) {
-                    currentFrame = 0;
-                    currentLine += 1;
-
-                    if (currentLine >= NUM_LINES) {
-                        currentLine = 0;
-                        active = false;
-                    }
-                }
-
-                framesCounter = 0;
-            }
-        }
-
-        frameRec.x = frameWidth*currentFrame as (f32);
-        frameRec.y = frameHeight*currentLine as (f32);
+        
+        currentFrame = frame % NUM_FRAMES
+        currentLine  = (frame / NUM_FRAMES) as (i32)
+        
+        frameRec.x = frameWidth  * currentFrame;
+        frameRec.y = frameHeight * currentLine;
+        
         
         BeginDrawing();
             ClearBackground(Color { 255_u8, 255_u8, 255_u8, 255_u8});
@@ -100,6 +129,7 @@ func main(len: i32, args: char**) : i32 {
             
             // Draw explosion required frame rectangle
             if (active) {
+                //printf("frame: %d, x: %f, y: %f\n", frame, frameRec.x, frameRec.y)
                 DrawTextureRec(explosion, frameRec, position, WHITE);
             }
         EndDrawing();
