@@ -3,8 +3,47 @@ import "raylib";
 import "animation";
 import "common";
    
+struct Effect {
+    pos: Vector2
+    anim: Animation
+    texture: Texture2D
+    rowNum: i32
+    colNum: i32    
+}
 
-func gameUpdate(timeStep: TimeStep*) {
+const MAX_EFFECT_POOL = 32;
+const effectPool = [MAX_EFFECT_POOL]Effect;
+var nextEffect: i32 = 0;
+
+func createExplosion(tex: Texture2D) : Effect* {
+    const NUM_FRAMES = 8;
+    const NUM_LINES = 6;
+
+    var effect = &effectPool[nextEffect];
+    effect.pos = GetMousePosition();
+    
+    var frameWidth = tex.width  / NUM_FRAMES;
+    var frameHeight = tex.height / NUM_LINES;
+    effect.pos.x -= frameWidth/2.0f;
+    effect.pos.y -= frameHeight/2.0f;
+                        
+    effect.texture = tex;
+    effect.colNum = NUM_FRAMES
+    effect.rowNum = NUM_LINES
+    
+    var anim = &effect.anim    
+    anim.numberOfFrames = NUM_FRAMES * NUM_LINES;
+    anim.elapsedTime = 0;
+    anim.frameTime = 30_i64;
+    anim.currentFrame = 0;
+    anim.loop = false;
+    anim.isPaused = false;
+    
+    nextEffect = (nextEffect + 1) % MAX_EFFECT_POOL;
+    
+    animationPlay(anim)
+    
+    return effect;
 }
 
 func main(len: i32, args: char**) : i32 {
@@ -22,23 +61,8 @@ func main(len: i32, args: char**) : i32 {
     var explosion = LoadTexture("../assets/explosion.png");
     defer UnloadTexture(explosion)
     
-    const NUM_FRAMES = 8;
-    const NUM_LINES = 6;
-    
-    // Init variables for animation
-    var frameWidth = explosion.width  / NUM_FRAMES;    // Sprite one frame rectangle width
-    var frameHeight = explosion.height / NUM_LINES;   // Sprite one frame rectangle height
-    var currentFrame = 0;
-    var currentLine = 0;
-
-    var frameRec = Rectangle { 0.0f, 0.0f, frameWidth, frameHeight };
-    var position = Vector2{ 0.0f, 0.0f };
-
-    var active = false;
-    var framesCounter = 0;
 
     SetTargetFPS(120);
-    //-----------------
     
     var camera = Camera {
         .position: Vector3{10.0f,10.0f,10.0f},
@@ -52,20 +76,9 @@ func main(len: i32, args: char**) : i32 {
     SetTargetFPS(120);
     SetMasterVolume(0.2f)
     
-    var pos = Vector2 { 140.0f, 150.0f }
-    
     //var currentTime : Time = GetTime() * 
     var gameClock : Time = 0_i64;
-    
-    var explosionAnim = Animation {
-        .numberOfFrames: NUM_FRAMES * NUM_LINES,
-        .elapsedTime: 0,
-        .frameTime: 30_i64,
-        .currentFrame: 0,
-        .loop: false,
-        .isPaused: true,
-    }
-    
+   
     
     while(!WindowShouldClose()) {
         UpdateCamera(&camera);
@@ -80,57 +93,48 @@ func main(len: i32, args: char**) : i32 {
             .frameTimeFraction: frameTimeFraction
         }
         
-      //  printf("timeStep: %llu %f %f\n", timeStep.frameTime, timeStep.frameTimeFraction, GetTime())
-        
-        var frame = 0
-        if (active) {
-            frame = animationUpdate(&explosionAnim, &timeStep)       
-            //printf("frame: %d\n", frame)
+        for(var i = 0; i < MAX_EFFECT_POOL; i+=1) {
+            var effect = &effectPool[i];
+            var anim = &effect.anim;
             
-            if(animationIsDone(&explosionAnim)) {
-                active = false;
-                animationReset(&explosionAnim)
+            if(anim.numberOfFrames > 0) {
+                var f = animationUpdate(anim, &timeStep)
+                                
+                if(animationIsDone(anim)) {                
+                    anim.numberOfFrames = 0;
+                }
             }
         }
         
         
-        
-        
-        
-        if(IsKeyReleased(KeyboardKey.KEY_UP)) {
-            pos.y += 1.0f
-        }
-        else if(IsKeyReleased(KeyboardKey.KEY_DOWN)) {
-            pos.y -= 1.0f
-        }
-        
-        // Check for mouse button pressed and activate explosion (if not active)
-        if (IsMouseButtonPressed(MouseButton.MOUSE_LEFT_BUTTON) && !active) {
-            position = GetMousePosition();
-            active = true;
-            animationPlay(&explosionAnim)
-
-            position.x -= frameWidth/2.0f;
-            position.y -= frameHeight/2.0f;
-
+        if (IsMouseButtonPressed(MouseButton.MOUSE_LEFT_BUTTON)) {
+            createExplosion(explosion);
             PlaySound(fxBoom);
         }
         
-        currentFrame = frame % NUM_FRAMES
-        currentLine  = (frame / NUM_FRAMES) as (i32)
-        
-        frameRec.x = frameWidth  * currentFrame;
-        frameRec.y = frameHeight * currentLine;
-        
-        
         BeginDrawing();
             ClearBackground(Color { 255_u8, 255_u8, 255_u8, 255_u8});
-            DrawText("Hello World", pos.x as (i32), pos.y as (i32), 20, Color { 255_u8, 0_u8, 0_u8, 255_u8})
+            //DrawText("Hello World", pos.x as (i32), pos.y as (i32), 20, Color { 255_u8, 0_u8, 0_u8, 255_u8})
             
-            // Draw explosion required frame rectangle
-            if (active) {
-                //printf("frame: %d, x: %f, y: %f\n", frame, frameRec.x, frameRec.y)
-                DrawTextureRec(explosion, frameRec, position, WHITE);
+            for(var i = 0; i < MAX_EFFECT_POOL; i+=1) {
+                var effect = &effectPool[i];
+                var anim = &effect.anim;
+                
+                if(anim.numberOfFrames > 0) {
+                    var frame = animationCurrentFrame(anim)
+                                        
+                    var currentFrame = frame % effect.colNum 
+                    var currentLine  = (frame / effect.colNum) as (i32)
+
+                    var frameWidth = effect.texture.width  / effect.colNum;
+                    var frameHeight = effect.texture.height / effect.rowNum;
+    
+                    var frameRec = Rectangle { 0.0f, 0.0f, frameWidth, frameHeight };
+                    frameRec.x = frameWidth  * currentFrame;
+                    frameRec.y = frameHeight * currentLine;
+                    
+                    DrawTextureRec(effect.texture, frameRec, effect.pos, WHITE);
+                }
             }
         EndDrawing();
     }    
