@@ -9,67 +9,67 @@ public struct Animation {
     isPaused: bool
 } 
 
-public func animationUpdate(anim: Animation*, timeStep: TimeStep*) : i32 {
-    if(anim.isPaused) {
-        return anim.currentFrame;
+public func animationUpdate(anim: using Animation*, timeStep: TimeStep*) : i32 {
+    if(isPaused) {
+        return currentFrame;
     }
 
-    anim.elapsedTime += timeStep.frameTime;
+    elapsedTime += timeStep.frameTime;
 
-    if(anim.elapsedTime > anim.frameTime) {
-        anim.elapsedTime -= anim.frameTime;
+    if(elapsedTime > frameTime) {
+        elapsedTime -= frameTime;
 
-        var desiredFrame = anim.currentFrame + 1;
+        var desiredFrame = currentFrame + 1;
 
-        if(!anim.loop && desiredFrame >= anim.numberOfFrames) {
-            desiredFrame = anim.numberOfFrames - 1;
+        if(!loop && desiredFrame >= numberOfFrames) {
+            desiredFrame = numberOfFrames - 1;
         }
 
         animationSetCurrentFrame(anim, desiredFrame);
     }
 
-    return anim.currentFrame;
+    return currentFrame;
 }
 
-public func animationPlay(anim: Animation*) {
-    anim.isPaused = false
+public func animationPlay(anim: using Animation*) {
+    isPaused = false
 }
 
-public func animationStop(anim: Animation*) {
-    anim.isPaused = true
-    anim.elapsedTime = 0;
-    anim.currentFrame = 0;
+public func animationStop(anim: using Animation*) {
+    isPaused = true
+    elapsedTime = 0;
+    currentFrame = 0;
 }
 
-public func animationPause(anim: Animation*) {
-    anim.isPaused = 1;
+public func animationPause(anim: using Animation*) {
+    isPaused = 1;
 }
 
-public func animationResume(anim: Animation*) {
-    anim.isPaused = 0;
+public func animationResume(anim: using Animation*) {
+    isPaused = 0;
 }
 
-public func animationReset(anim: Animation*) {
-    anim.elapsedTime = 0;
-    anim.currentFrame = 0;
+public func animationReset(anim: using Animation*) {
+    elapsedTime = 0;
+    currentFrame = 0;
 }
 
-public func animationIsPaused(anim: Animation*) : i32 {
-    return anim.isPaused;
+public func animationIsPaused(anim: using Animation*) : i32 {
+    return isPaused;
 }
 
-public func animationIsDone(anim: Animation*) : i32 {
-    return !anim.loop && anim.currentFrame >= (anim.numberOfFrames - 1);
+public func animationIsDone(anim: using Animation*) : i32 {
+    return !loop && currentFrame >= (numberOfFrames - 1);
 }
 
-public func animationCurrentFrame(anim: Animation*) : i32 {
-    return anim.currentFrame;
+public func animationCurrentFrame(anim: using Animation*) : i32 {
+    return currentFrame;
 }
 
-public func animationNumberOfFrames(anim: Animation*) : i32 {
-    return anim.numberOfFrames;
+public func animationNumberOfFrames(anim: using Animation*) : i32 {
+    return numberOfFrames;
 }
 
-public func animationSetCurrentFrame(anim: Animation*, frameNumber: i32) {
-    anim.currentFrame = frameNumber % anim.numberOfFrames;
+public func animationSetCurrentFrame(anim: using Animation*, frameNumber: i32) {
+    currentFrame = frameNumber % numberOfFrames;
 }
