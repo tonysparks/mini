@@ -2,7 +2,8 @@ import "io";
 import "raylib";
 import "animation";
 import "common";
-   
+import "input_system";
+
 struct Effect {
     pos: Vector2
     anim: Animation
@@ -46,8 +47,17 @@ func createExplosion(tex: Texture2D) : Effect* {
     return effect;
 }
 
+func PrintKey(event: KeyEvent*) {
+    if(event.type == KeyType.PRESSED) {
+        log(LogLevel.INFO, "Key Pressed: %d", event.keyCode);
+    }
+    else {
+        log(LogLevel.INFO, "Key Released: %d", event.keyCode);
+    }
+}
+
 func main(len: i32, args: char**) : i32 {
-    InitWindow(800, 450, "Testing!");
+    InitWindow(800, 450, "Mini-Game");
     defer CloseWindow();
     
     InitAudioDevice();
@@ -63,6 +73,10 @@ func main(len: i32, args: char**) : i32 {
     
 
     SetTargetFPS(120);
+    InputSysInit();
+    defer InputSysDestroy();
+
+    InputSysRegisterKeyboardHandler(&PrintKey);
     
     var camera = Camera {
         .position: Vector3{10.0f,10.0f,10.0f},
@@ -105,6 +119,8 @@ func main(len: i32, args: char**) : i32 {
                 }
             }
         }
+
+        InputSysUpdate(&timeStep);
         
         
         if (IsMouseButtonPressed(MouseButton.MOUSE_LEFT_BUTTON)) {

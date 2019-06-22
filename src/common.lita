@@ -1,9 +1,55 @@
 
+import "raylib";
+
+@include("<stdarg.h>");
+@include("<stdio.h>");
+
+@foreign struct FILE;
+//@foreign struct va_list;
+@foreign func va_start(args: va_list, format: char const*);
+@foreign func va_end(args: va_list);
+@foreign func vfprintf(f:FILE*, format: char const*, args: va_list);
+@foreign func exit(code: i32);
+@foreign func fputs(format: char const*,f:FILE*);
+@foreign const stderr : FILE*;
+@foreign const stdout : FILE*;
 
 public typedef i64 as Time;
+
+public typedef Vector2 as Vec2;
+public typedef Vector3 as Vec3;
+public typedef Vector4 as Vec4;
 
 public struct TimeStep {
     frameTime: Time;          /* time from last frame */
     gameClock: Time;          /* current game clock */
     frameTimeFraction: f64;   /* time from last frame in fractions of seconds */
 } 
+
+public enum LogLevel {
+    TRACE,
+    INFO,
+    DEBUG,
+    ERROR,
+    FATAL
+}
+
+public func log(level: LogLevel, format: char const*, ...) {
+    var args: va_list;
+    va_start(args, format);
+    
+    if(level > LogLevel.DEBUG) {
+        vfprintf(stderr, format, args);            
+        va_end(args);    
+        fputs("\n", stderr);
+    }
+    else {
+        vfprintf(stdout, format, args);            
+        va_end(args);    
+        fputs("\n", stdout);
+    }
+
+    if(level == LogLevel.FATAL) {
+        exit(2);
+    }
+}
