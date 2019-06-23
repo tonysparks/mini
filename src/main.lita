@@ -3,57 +3,26 @@ import "raylib";
 import "animation";
 import "common";
 import "input_system";
+import "console";
+import "game";
+import "wren";
 
-struct Effect {
-    pos: Vector2
-    anim: Animation
-    texture: Texture2D
-    rowNum: i32
-    colNum: i32    
+var isRunning = false;
+
+func CmdQuit(args: char const*) {
+    isRunning = false;
 }
 
-const MAX_EFFECT_POOL = 32;
-const effectPool = [MAX_EFFECT_POOL]Effect;
-var nextEffect: i32 = 0;
+func Update(timeStep: TimeStep*) {    
+    InputSysUpdate(timeStep);
+    ConsoleUpdate(timeStep);
 
-func createExplosion(tex: Texture2D) : Effect* {
-    const NUM_FRAMES = 8;
-    const NUM_LINES = 6;
-
-    var effect = &effectPool[nextEffect];
-    effect.pos = GetMousePosition();
-    
-    var frameWidth = tex.width  / NUM_FRAMES;
-    var frameHeight = tex.height / NUM_LINES;
-    effect.pos.x -= frameWidth/2.0f;
-    effect.pos.y -= frameHeight/2.0f;
-                        
-    effect.texture = tex;
-    effect.colNum = NUM_FRAMES
-    effect.rowNum = NUM_LINES
-    
-    var anim = &effect.anim    
-    anim.numberOfFrames = NUM_FRAMES * NUM_LINES;
-    anim.elapsedTime = 0;
-    anim.frameTime = 30_i64;
-    anim.currentFrame = 0;
-    anim.loop = false;
-    anim.isPaused = false;
-    
-    nextEffect = (nextEffect + 1) % MAX_EFFECT_POOL;
-    
-    animationPlay(anim)
-    
-    return effect;
+    GameUpdate(timeStep)
 }
 
-func PrintKey(event: KeyEvent*) {
-    if(event.type == KeyType.PRESSED) {
-        log(LogLevel.INFO, "Key Pressed: %d", event.keyCode);
-    }
-    else {
-        log(LogLevel.INFO, "Key Released: %d", event.keyCode);
-    }
+func Draw() {
+    GameDraw();
+    ConsoleDraw();
 }
 
 func main(len: i32, args: char**) : i32 {
@@ -63,95 +32,67 @@ func main(len: i32, args: char**) : i32 {
     InitAudioDevice();
     defer CloseAudioDevice();
     
-    // Load explosion sound
-    var fxBoom = LoadSound("../assets/boom.wav");
-    defer UnloadSound(fxBoom)
-
-    // Load explosion texture
-    var explosion = LoadTexture("../assets/explosion.png");
-    defer UnloadTexture(explosion)
-    
-
-    SetTargetFPS(120);
     InputSysInit();
     defer InputSysDestroy();
 
-    InputSysRegisterKeyboardHandler(&PrintKey);
+    ConsoleInit();
+    defer ConsoleDestroy();
     
-    var camera = Camera {
-        .position: Vector3{10.0f,10.0f,10.0f},
-        .target: Vector3{0.0f,0.0f,0.0f},
-        .up: Vector3{0.0f,1.0f,0.0f},
-        .fovy: 45.0f,
-        .type: CameraType.CAMERA_PERSPECTIVE
-    }
-    
-    SetCameraMode(camera, CameraMode.CAMERA_FREE);
-    SetTargetFPS(120);
+    ConsoleAddCommand("quit", CmdQuit)
+    ConsoleAddCommand("exit", CmdQuit)
+
+    GameInit();
+    defer GameDestroy();
+
+    SetTargetFPS(133);
     SetMasterVolume(0.2f)
     
-    //var currentTime : Time = GetTime() * 
     var gameClock : Time = 0_i64;
-   
-    
-    while(!WindowShouldClose()) {
-        UpdateCamera(&camera);
-        
-        var frameTimeFraction:f32 = GetFrameTime()
-        var frameTime : Time = (frameTimeFraction * 1_000_i64) as (i64)
-        gameClock += frameTime
-                
-        var timeStep = TimeStep {
-            .frameTime: frameTime,
-            .gameClock: gameClock,
-            .frameTimeFraction: frameTimeFraction
-        }
-        
-        for(var i = 0; i < MAX_EFFECT_POOL; i+=1) {
-            var effect = &effectPool[i];
-            var anim = &effect.anim;
-            
-            if(anim.numberOfFrames > 0) {
-                var f = animationUpdate(anim, &timeStep)
-                                
-                if(animationIsDone(anim)) {                
-                    anim.numberOfFrames = 0;
-                }
-            }
+    var currentTime = GetTicks()
+    var accumulator = 0_i64
+    var previousTime : Time = 0_i64
+
+    const maxIterations = 5
+    const maxDelta = 250_i64
+    const frameRate = 30_i64
+    const dt = 1000_i64 / frameRate
+
+    const timeStep = TimeStep {
+        .frameTime: dt,
+        .gameClock: gameClock,
+        .frameTimeFraction: dt / 1000_f64
+    }
+
+    isRunning = true;
+    while(!WindowShouldClose() && isRunning) {
+        var newTime = GetTicks()
+        var deltaTime = newTime - currentTime;
+
+        // don't let the game get too far behind
+        if(deltaTime > maxDelta) {
+            deltaTime = maxDelta;
         }
 
-        InputSysUpdate(&timeStep);
-        
-        
-        if (IsMouseButtonPressed(MouseButton.MOUSE_LEFT_BUTTON)) {
-            createExplosion(explosion);
-            PlaySound(fxBoom);
-        }
+        // Keep the game logic running at a fix time step
+        if(deltaTime >= dt) {
+            currentTime = newTime
+            accumulator += deltaTime
+            var iteration = 0
+
+            while(accumulator >= dt && iteration < maxIterations) {
+                timeStep.gameClock = gameClock
+
+                Update(&timeStep)
+
+                gameClock   += dt
+                accumulator -= dt
+                iteration   += 1
+            }
+        }       
         
         BeginDrawing();
-            ClearBackground(Color { 255_u8, 255_u8, 255_u8, 255_u8});
-            //DrawText("Hello World", pos.x as (i32), pos.y as (i32), 20, Color { 255_u8, 0_u8, 0_u8, 255_u8})
-            
-            for(var i = 0; i < MAX_EFFECT_POOL; i+=1) {
-                var effect = &effectPool[i];
-                var anim = &effect.anim;
-                
-                if(anim.numberOfFrames > 0) {
-                    var frame = animationCurrentFrame(anim)
-                                        
-                    var currentFrame = frame % effect.colNum 
-                    var currentLine  = (frame / effect.colNum) as (i32)
-
-                    var frameWidth = effect.texture.width  / effect.colNum;
-                    var frameHeight = effect.texture.height / effect.rowNum;
-    
-                    var frameRec = Rectangle { 0.0f, 0.0f, frameWidth, frameHeight };
-                    frameRec.x = frameWidth  * currentFrame;
-                    frameRec.y = frameHeight * currentLine;
-                    
-                    DrawTextureRec(effect.texture, frameRec, effect.pos, WHITE);
-                }
-            }
+            ClearBackground(BLACK);
+            Draw();
         EndDrawing();
     }    
 }

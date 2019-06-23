@@ -1,0 +1,144 @@
+import "io";
+import "raylib";
+import "animation";
+import "common";
+import "input_system";
+import "console";
+
+struct Effect {
+    pos: Vec2
+    anim: Animation
+    texture: Texture2D
+    rowNum: i32
+    colNum: i32    
+}
+
+const MAX_EFFECT_POOL = 32;
+
+struct Game {
+    effectPool: [MAX_EFFECT_POOL]Effect
+    nextEffect: i32
+    camera: Camera
+
+    // Temp
+    fxBoom: Sound
+    explosionTex: Texture2D
+}
+
+const game = Game{}
+
+func GameOnMouseEvent(event: MouseEvent*) : bool {    
+    if (event.type == EventType.PRESSED && event.button == MouseButton.MOUSE_LEFT_BUTTON) {
+        CreateExplosion(game.explosionTex);
+        PlaySound(game.fxBoom);
+        return true
+    }
+
+    return false
+}
+
+public func GameInit() {
+    game.camera = Camera {
+        .position: Vector3{10.0f,10.0f,10.0f},
+        .target: Vector3{0.0f,0.0f,0.0f},
+        .up: Vector3{0.0f,1.0f,0.0f},
+        .fovy: 45.0f,
+        .type: CameraType.CAMERA_PERSPECTIVE
+    }
+
+    SetCameraMode(game.camera, CameraMode.CAMERA_FREE);
+
+
+    // Load explosion sound
+    game.fxBoom = LoadSound("../assets/boom.wav");
+    
+
+    // Load explosion texture
+    game.explosionTex = LoadTexture("../assets/explosion.png");
+
+
+    InputSysRegisterMouseHandler(&GameOnMouseEvent)
+}
+
+public func GameDestroy() {
+    UnloadSound(game.fxBoom)
+    UnloadTexture(game.explosionTex)
+}
+
+public func GameUpdate(timeStep: TimeStep*) {
+    UpdateCamera(&game.camera);
+
+    var effectPool = game.effectPool
+
+    for(var i = 0; i < MAX_EFFECT_POOL; i+=1) {
+        var effect = &effectPool[i];
+        var anim = &effect.anim;
+        
+        if(anim.numberOfFrames > 0) {
+            var f = animationUpdate(anim, timeStep)
+                            
+            if(animationIsDone(anim)) {                
+                anim.numberOfFrames = 0;
+            }
+        }
+    }
+}
+
+public func GameDraw() {
+    var effectPool = game.effectPool
+
+    for(var i = 0; i < MAX_EFFECT_POOL; i+=1) {
+        var effect = &effectPool[i];
+        var anim = &effect.anim;
+        
+        if(anim.numberOfFrames > 0) {
+            var frame = animationCurrentFrame(anim)
+                                
+            var currentFrame = frame % effect.colNum 
+            var currentLine  = (frame / effect.colNum) as (i32)
+
+            var frameWidth = effect.texture.width  / effect.colNum;
+            var frameHeight = effect.texture.height / effect.rowNum;
+
+            var frameRec = Rectangle { 0.0f, 0.0f, frameWidth, frameHeight };
+            frameRec.x = frameWidth  * currentFrame;
+            frameRec.y = frameHeight * currentLine;
+            
+            DrawTextureRec(effect.texture, frameRec, effect.pos, WHITE);
+        }
+    }
+}
+
+
+
+func CreateExplosion(tex: Texture2D) : Effect* {
+    const NUM_FRAMES = 8;
+    const NUM_LINES = 6;
+    var effectPool = game.effectPool
+
+    var effect = &effectPool[game.nextEffect];
+    effect.pos = GetMousePosition();
+    
+    var frameWidth = tex.width  / NUM_FRAMES;
+    var frameHeight = tex.height / NUM_LINES;
+    effect.pos.x -= frameWidth/2.0f;
+    effect.pos.y -= frameHeight/2.0f;
+                        
+    effect.texture = tex;
+    effect.colNum = NUM_FRAMES
+    effect.rowNum = NUM_LINES
+    
+    var anim = &effect.anim    
+    anim.numberOfFrames = NUM_FRAMES * NUM_LINES;
+    anim.elapsedTime = 0;
+    anim.frameTime = 30_i64;
+    anim.currentFrame = 0;
+    anim.loop = false;
+    anim.isPaused = false;
+    
+    game.nextEffect = (game.nextEffect + 1) % MAX_EFFECT_POOL;
+    
+    animationPlay(anim)
+    
+    return effect;
+}

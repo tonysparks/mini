@@ -1,0 +1,668 @@
+import "common";
+import "raylib";
+import "mem";
+import "input_system";
+import "io";
+
+public typedef func(char const*) : void as Command;
+
+@include("<ctype.h>");
+@foreign func isalpha(c: char) : bool;
+
+const MAX_INPUT_BUFFER = 128
+const MAX_TEXT_LINES = 256
+const MAX_COMMAND_NAME = 32
+
+const CMD_MAX_HEIGHT = 100
+const CMD_MIN_HEIGHT = -40
+const CMD_BLINK_TIME = 200
+const CMD_CLOSE_SPEED = 15
+const CMD_OPEN_SPEED  = 20
+
+const fontSize = 12f;
+const spacing = 2f;
+
+struct Commands {
+    cmd: Command
+    name: [MAX_COMMAND_NAME]char
+    next: Commands*
+}
+
+struct TextLine {
+    line: [MAX_INPUT_BUFFER]char
+    next: TextLine*
+}
+
+struct TextBuffer {
+    start: TextLine*
+    end: TextLine*
+
+    text: [MAX_TEXT_LINES]TextLine
+    numOfLines: i32
+}
+
+enum ConsoleState {
+    NONE,
+    OPENING,
+    CLOSING,
+}
+
+struct Console {
+    textBuffer: TextBuffer
+    inputBuffer: [MAX_INPUT_BUFFER]char
+    inputBufferPos: i32
+    inputBufferSize: i32
+    commands: Commands*
+    isActive: bool
+    state: ConsoleState
+    font: Font
+    fontHeight: f32
+
+    scrollHeight: i32
+    height: f32
+    blinkTimer: Time
+    showCursor: bool
+    allocator: Allocator const*
+}
+
+const fontColor = Color {
+    .r = 0_u8,
+    .g = 255_u8,
+    .b = 0_u8,
+    .a = 255_u8
+}
+
+const backgroundColor = Color {
+    .r = 255_u8,
+    .g = 255_u8,
+    .b = 255_u8,
+    .a = 80_u8
+};
+
+const inputBgColor = Color {
+    .r = 205_u8,
+    .g = 205_u8,
+    .b = 205_u8,
+    .a = 120_u8
+};
+
+const outlineColor = Color {
+    .r = 0_u8,
+    .g = 0_u8,
+    .b = 0_u8,
+    .a = 255_u8
+};
+
+
+const shiftChar = [255]char {
+    ['1'] = '!',
+    ['2'] = '@',
+    ['3'] = '#',
+    ['4'] = '$',
+    ['5'] = '%',
+    ['6'] = '^',
+    ['7'] = '&',
+    ['8'] = '*',
+    ['9'] = '(',
+    ['0'] = ')',
+    ['-'] = '_',
+    ['='] = '+',
+    ['\\'] = '|',
+    [']'] = '}',
+    ['['] = '{',
+/*    ['\''] = '"', */ // fix syntax highlighting!
+    [';'] = ':',
+    ['/'] = '?',
+    ['.'] = '>',
+    [','] = '<',
+    ['`'] = '~',
+}
+
+
+const console = Console {
+    .height = CMD_MIN_HEIGHT,
+    .blinkTimer = CMD_BLINK_TIME,
+    .showCursor = true,
+    .commands = null
+}
+
+public func ConsoleInit(allocator: Allocator const* = null) {
+    if(!allocator) {
+        allocator = cAllocator;
+    }
+
+    console.allocator = allocator;
+
+    
+    var defaultFont = Font {}    
+    defaultFont.baseSize = fontSize as (i32)
+    defaultFont.charsCount = 95
+    defaultFont.chars = LoadFontData("../assets/Consola.ttf", fontSize as (i32), 0, defaultFont.charsCount, FontType.FONT_DEFAULT);
+    var atlas = GenImageFontAtlas(defaultFont.chars, defaultFont.charsCount, fontSize as (i32), 4, 0);
+
+    defaultFont.texture = LoadTextureFromImage(atlas);
+    UnloadImage(atlas);
+
+    //var defaultFont = LoadFont("../assets/Consola.tff")
+
+    console.font = defaultFont
+
+    console.textBuffer.numOfLines = 0;
+    console.textBuffer.start = console.textBuffer.end= &console.textBuffer.text[0];
+    for(var i = 0; i < MAX_TEXT_LINES; i += 1) {
+        if(i < MAX_TEXT_LINES - 1) {
+            console.textBuffer.text[i].next = &console.textBuffer.text[i+1];
+        }
+        else {
+            console.textBuffer.text[i].next = console.textBuffer.start;
+        }
+        memset(console.textBuffer.text[i].line as (void*), 0, MAX_INPUT_BUFFER);
+    }
+
+    console.commands = null;
+
+    memset(console.inputBuffer, 0, MAX_INPUT_BUFFER);
+    InputSysRegisterKeyboardHandler(&ConsoleOnKeyEvent);
+
+    var dims = MeasureTextEx(console.font, "W", fontSize, spacing);
+    console.fontHeight = dims.y
+
+    // Add default commands
+    ConsoleAddCommand("clear", &CmdClear)
+    ConsoleAddCommand("cmdlist", &CmdList)
+}
+
+public func ConsoleDestroy() {
+    UnloadFont(console.font)
+
+    var c = console.commands
+    while(c) {
+        var next = c.next
+        console.allocator.free(c as (void*))
+
+        c = next;
+    }
+}
+
+public func ConsolePrintf(format: char const*, ...) {
+    if(console.textBuffer.end.next == console.textBuffer.start) {
+        console.textBuffer.start = console.textBuffer.start.next;
+    }
+
+    var args: va_list;
+    va_start(args, format);
+    vsprintf_s(console.textBuffer.end.line, MAX_INPUT_BUFFER, format, args);    
+    va_end(args);
+
+    var newLine = console.textBuffer.end;
+    var line: char* = console.textBuffer.end.line;
+    var start: char* = line;
+    var n = 0;
+    
+    while(*line) {
+        var c = *line;
+        line+=1
+        n+=1;
+
+        if(c == '\n') {
+            console.textBuffer.numOfLines+=1;
+
+            if(newLine == console.textBuffer.end) {
+                console.textBuffer.end.line[n - 1] = '\0';    
+            }
+            else {
+                strncpy(console.textBuffer.end.line, start, n);
+                console.textBuffer.end.line[n - 1] = '\0';
+            }
+
+            console.textBuffer.end = console.textBuffer.end.next;
+            if(console.textBuffer.end.next == console.textBuffer.start) {
+                console.textBuffer.start = console.textBuffer.start.next;
+            }
+
+            start = line;
+            n = 0;
+        }
+    }
+
+   //printf("ConsolePrintf: %d %s\n", console.textBuffer.numOfLines, console.textBuffer.end.line)
+}
+
+public func ConsoleExecute(format: char const*, ...) {
+    @static 
+    var text: [MAX_INPUT_BUFFER]char;
+  
+    var args: va_list;
+    va_start(args, format);
+    var len = vsnprintf_s(text, MAX_INPUT_BUFFER, MAX_INPUT_BUFFER, format, args);
+    va_end(args);   
+
+    ConsolePrintf("%s\n", text);
+
+    var pos = 0_u64;
+    while(pos < len) {
+        var c = text[pos];
+        if(c == ' ') {
+            break;
+        }
+        if(c == '\0') {
+            break;
+        }
+
+        pos+=1;
+    }
+
+    var cmd = ConsoleFindCommand(text, pos);
+    if(cmd) {
+        cmd.cmd(&text[pos]);
+    }
+}
+
+
+public func ConsoleAddCommand(name: char const*, cmd: Command) {
+    var c = console.commands;
+    var prev = console.commands;
+    while(c) {
+        if(!strcmp(c.name, name)) {
+            log(LogLevel.INFO, "Command '%s' is already bound. \n", name);
+            return;
+        }
+
+        prev = c;
+        c = c.next;
+    }
+
+    var newCmd = console.allocator.alloc(sizeof(Commands)) as (Commands*);
+    newCmd.cmd = cmd;
+    newCmd.next = null;
+    memset(newCmd.name, 0, MAX_COMMAND_NAME);
+    strncpy(newCmd.name, name, MAX_COMMAND_NAME);
+
+    if(!prev) {
+        console.commands = newCmd;
+    }
+    else {
+        prev.next = newCmd;
+    }
+}
+
+public func ConsoleRemoveCommand(name: char const*) {
+    var c = console.commands;
+    while(c) {
+        if(!strcmp(c.name, name)) {
+            var rmCmd = c;
+            if(rmCmd == console.commands) {
+                console.commands = c.next;
+            }
+            else {
+                c = c.next;
+            }
+
+            console.allocator.free(rmCmd as (void*));
+            break;
+        }
+        
+        c = c.next;
+    }
+}
+
+public func ConsoleToggle() {
+    if(!console.isActive) {
+        console.state = ConsoleState.OPENING;
+        console.isActive = true;
+    }
+    else {
+        ConsoleDeactivate();
+    }
+}
+
+
+public func ConsoleDeactivate() {
+    console.state = ConsoleState.CLOSING;
+    console.isActive = false;
+}
+
+public func ConsoleIsActive() : bool {
+    return console.isActive
+}
+
+public func ConsoleUpdate(timeStep: TimeStep*) {
+    console.blinkTimer -= timeStep.frameTime;
+    if(console.blinkTimer < 0) {
+        console.blinkTimer = CMD_BLINK_TIME;
+        console.showCursor = !console.showCursor;
+    }
+
+    if(console.state == ConsoleState.OPENING) {
+        if(console.height < CMD_MAX_HEIGHT) {
+            console.height += CMD_OPEN_SPEED;
+        }
+
+        if(console.height > CMD_MAX_HEIGHT) {
+            console.height = CMD_MAX_HEIGHT;
+            console.state = ConsoleState.NONE;
+        }        
+    }
+    else if(console.state == ConsoleState.CLOSING) {
+        if(console.height > CMD_MIN_HEIGHT) {
+            console.height -= CMD_CLOSE_SPEED;
+        }
+
+        if(console.height < CMD_MIN_HEIGHT) {
+            console.height = CMD_MIN_HEIGHT;
+            console.state = ConsoleState.NONE;
+        }
+    }
+}
+
+public func ConsoleDraw() {
+    if(!console.fontHeight) {
+        return;
+    }
+
+    if(console.height == CMD_MIN_HEIGHT) {
+        return;
+    }
+
+
+    @static
+    var scratchBuffer: [MAX_INPUT_BUFFER]char;
+
+    var background = Rect {
+        .x = 0,
+        .y = 0,
+        .width = GetScreenWidth(),
+        .height = console.height + console.fontHeight
+    };
+
+    var input = Rect {
+        .x = 0,
+        .y = background.height,
+        .width = GetScreenWidth(),
+        .height = console.fontHeight + 10
+    };
+
+    DrawRectangleRec(background, backgroundColor);
+
+    /* Draw the input section */
+    {
+        DrawRectangleRec(input, inputBgColor);
+
+        var a = Vec2{0, input.y};
+        var b = Vec2{background.width, input.y}
+        DrawLineV(a, b, outlineColor);
+
+        if(console.inputBufferSize > 0) {
+            a.x = 3;
+            a.y = input.y + 5;
+            DrawTextEx(console.font, console.inputBuffer, a, fontSize, spacing, fontColor); 
+        }
+
+        if(console.showCursor) {
+            memset(scratchBuffer, 0, MAX_INPUT_BUFFER);
+            strncpy(scratchBuffer, console.inputBuffer, console.inputBufferPos);
+            var textMetrics = MeasureTextEx(console.font, scratchBuffer, fontSize, spacing);
+
+            a.x = 3 + textMetrics.x 
+            a.y = input.y + 5
+
+            DrawTextEx(console.font, "_", a, fontSize, spacing, fontColor); 
+        }
+    }
+
+    /* Draw scrolling text */
+
+    var pos = Vec2{5, 10};
+
+    var start = console.textBuffer.start;
+    var end   = console.textBuffer.end;
+
+    var numLinesVisible = console.height / console.fontHeight;
+    var lineNumberStartRendering = MAX(console.textBuffer.numOfLines - (console.scrollHeight + numLinesVisible) as (i32), 0);
+
+    var currentLineNumber = 0;
+    var current = start;
+    while(current != end) {  
+
+        if(currentLineNumber < lineNumberStartRendering) {
+            currentLineNumber+=1;
+            current = current.next;
+            continue;
+        }
+
+        if(pos.y > CMD_MAX_HEIGHT) {
+            return;
+        }
+
+        if(current.line[0] != '\0') {
+            DrawTextEx(console.font, current.line, pos, fontSize, spacing, fontColor); 
+        }
+
+        pos.y += console.fontHeight;
+
+        currentLineNumber+=1;
+        current = current.next;
+    }
+}
+
+func ConsoleFindCommand(name: char const*, len: u64) : Commands* {
+    var c = console.commands;
+    while(c) {
+        var cmdLen = strlen(c.name);
+        if(cmdLen == len && !strncmp(c.name, name, len)) {
+            return c;
+        }
+        
+        c = c.next;
+    }
+
+    return null;
+}
+
+func ConsoleOnKeyEvent(keyEvent: KeyEvent*) : bool {
+    //printf("Console Key Pressed: %d\n", keyEvent.keyCode)
+
+    if(keyEvent.keyCode == KeyboardKey.KEY_GRAVE &&
+       keyEvent.type == EventType.PRESSED) {
+        ConsoleToggle();
+        return true;
+    }
+
+    if(!console.isActive) {
+        return false;
+    }
+
+    if(keyEvent.type == EventType.RELEASED) {
+        return false;
+    }
+
+    switch(keyEvent.keyCode) {
+        case KeyboardKey.KEY_BACKSPACE: {
+            console.inputBufferPos -= 1
+            if(console.inputBufferPos < 0) {
+                console.inputBufferPos = 0;
+                return true;
+            }
+            /* fall-thru */
+        }
+        case KeyboardKey.KEY_DELETE: {
+            var len = console.inputBufferSize - console.inputBufferPos;
+            if(len > 0) {
+                var dst = &console.inputBuffer[console.inputBufferPos]
+                memmove(dst as (void*), (&console.inputBuffer[console.inputBufferPos + 1]) as (void const*), len)
+
+                console.inputBufferSize -= 1
+                if(console.inputBufferSize < 0) {
+                    console.inputBufferSize = 0
+                    console.inputBufferPos = 0
+                }
+            }
+            break;
+        }
+        case KeyboardKey.KEY_LEFT: {
+            console.inputBufferPos -= 1;
+            if(console.inputBufferPos < 0) {
+                console.inputBufferPos = 0;
+            }
+
+            break;
+        }
+        case KeyboardKey.KEY_RIGHT: {
+            console.inputBufferPos += 1;
+            if(console.inputBufferPos > console.inputBufferSize) {
+                console.inputBufferPos = console.inputBufferSize;
+            }
+            
+            break;
+        }
+        case KeyboardKey.KEY_PAGE_UP: {
+            ConsoleScrollUp();
+            break;
+        }
+        case KeyboardKey.KEY_PAGE_DOWN: {
+            ConsoleScrollDown();
+            break;
+        }
+        case KeyboardKey.KEY_HOME: {
+            console.inputBufferPos = 0;
+            break;
+        }
+        case KeyboardKey.KEY_END: {
+            console.inputBufferPos = console.inputBufferSize;
+            break;
+        }
+        case KeyboardKey.KEY_TAB: {
+            ConsoleTabComplete();
+            break;
+        }
+        case KeyboardKey.KEY_ENTER: {
+            ConsoleExecute("%s", console.inputBuffer);
+            memset(console.inputBuffer, 0, MAX_INPUT_BUFFER);
+            console.inputBufferPos = console.inputBufferSize = 0;
+
+            break;
+        }
+        default: {    
+            if(keyEvent.keyCode > 31 && keyEvent.keyCode < 127) {
+                if(console.inputBufferPos + 1 < MAX_INPUT_BUFFER) {
+                    var len = console.inputBufferSize - console.inputBufferPos;
+                    if(len > 0) {
+                        for(var i = 0; i < len; i += 1)  {
+                            console.inputBuffer[(console.inputBufferSize) - i] = console.inputBuffer[(console.inputBufferSize-1) - i];
+                        }                            
+                    }
+
+                    var c = keyEvent.keyCode as (char);
+                    if(isalpha(c)) {
+                        c += 32;
+                    }
+                    
+                    if(keyEvent.keymods & (Keymod.KMOD_SHIFT|Keymod.KMOD_CAPS)) {
+                        if(isalpha(c)) {
+                            c -= 32;
+                        }    
+                        else if(keyEvent.keymods & Keymod.KMOD_SHIFT) {
+                            var alt = shiftChar[c as (i32)];
+                            if(alt) {
+                                c = alt;
+                            }
+                        }
+                    }
+
+                    console.inputBuffer[console.inputBufferPos] = c;
+
+                    console.inputBufferSize += 1;
+                    console.inputBufferPos += 1;
+                }
+            }
+        }
+    }
+
+    return true;
+
+}
+
+func ConsoleScrollUp() {
+    console.scrollHeight+=1;
+
+    const numLinesVisible = console.height / console.fontHeight;
+    const max = MAX((console.textBuffer.numOfLines - numLinesVisible) as (i32), 0);
+    if(console.scrollHeight > max) {
+        console.scrollHeight = max;
+    }
+}
+
+func ConsoleScrollDown() {
+    console.scrollHeight-=1;
+    if(console.scrollHeight < 0) {
+        console.scrollHeight = 0;
+    }
+}
+
+func ConsoleTabComplete() {    
+    const maxCmds = 24
+    @static 
+    var matches: [maxCmds]Commands*;
+
+    if(console.inputBufferSize < 1) {
+        return;
+    }
+
+    for(var i = 0; i < maxCmds; i+=1) {
+        matches[i] = null;
+    }
+    var numOfMatches = 0;
+
+    var input = console.inputBuffer;
+
+
+    var c = console.commands;
+    while(c) {
+        if(!strncmp(c.name, input, console.inputBufferSize)) {
+            matches[numOfMatches] = c;
+            numOfMatches+=1
+        }
+        
+        c = c.next;
+    }
+
+    if(numOfMatches == 1) {
+        var cmd = matches[0];
+        strcpy(console.inputBuffer, cmd.name);
+        console.inputBufferSize = strlen(cmd.name) + 1;
+        console.inputBuffer[console.inputBufferSize-1] = ' ';
+        console.inputBuffer[console.inputBufferSize  ] = '\0';
+
+        console.inputBufferPos = console.inputBufferSize;
+    }
+    else if(numOfMatches > 1) {
+        for(var i = 0; i < numOfMatches; i+=1) {
+            ConsolePrintf("%s\n", matches[i].name);
+        }
+
+        ConsolePrintf("%s", "\n");
+    }
+
+}
+
+/* ---------------------------------------------
+     Standard Console Commands
+------------------------------------------------*/
+
+func CmdClear(args: char const*) {
+    console.textBuffer.numOfLines = 0
+    console.textBuffer.start = console.textBuffer.end = &console.textBuffer.text[0];
+    for(var i = 0; i < MAX_TEXT_LINES; i += 1) {
+        memset(console.textBuffer.text[i].line as (void*), 0, MAX_INPUT_BUFFER)
+    }
+
+    console.scrollHeight = 0
+}
+
+func CmdList(args: char const*) {
+    var cmds = console.commands;
+    while(cmds) {
+        ConsolePrintf("%s\n", cmds.name);
+        cmds = cmds.next;
+    }
+}

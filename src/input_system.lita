@@ -25,36 +25,45 @@ public enum Keymod {
     KMOD_RESERVED
 }
 
-public enum KeyType {
+public enum EventType {
     PRESSED,
-    RELEASED
+    RELEASED,
+    HELD,
+    MOUSE_WHEEL,
 }
 
 public struct KeyEvent {
-    type: KeyType
+    type: EventType
     keyCode: i32
-    mod: Keymods
+    keymods: Keymods
 }
 
-public typedef func(KeyEvent*) : void as OnKeyEvent;
+public typedef func(KeyEvent*) : bool as OnKeyEvent;
 
 public struct MouseEvent {
-    type: i32
+    type: EventType
     button: i32
     pos: Vec2
     flags: i32
     wheelDir: i32
 }
 
-public typedef func(MouseEvent*) : void as OnMouseEvent;
+public typedef func(MouseEvent*) : bool as OnMouseEvent;
 
 
 struct Key {
     timePressed : Time
+    timeEventEmit: Time
+}
+
+struct Button {
+    timePressed : Time
+    timeEventEmit: Time
 }
 
 const MAX_LISTENERS = 32;
 const MAX_KEYS = 348
+const MAX_BUTTONS = 4
 
 struct InputSys {
     keyListeners: [MAX_LISTENERS]OnKeyEvent;
@@ -65,6 +74,7 @@ struct InputSys {
 
     mousePos: Vec2
     keys: [MAX_KEYS]Key
+    buttons: [MAX_BUTTONS]Button
     isCaps: bool
     isInsert: bool
 }
@@ -72,40 +82,16 @@ struct InputSys {
 const inputSys = InputSys{}
 
 public func InputSysInit() {
-
 }
 
 public func InputSysDestroy() {
-
+    inputSys.numKeyListeners = 0
+    inputSys.numMouseListeners = 0
 }
 
 public func InputSysUpdate(timeStep: TimeStep*) {
-    const validKeyIndex = 39
-    for(var i = validKeyIndex; i < MAX_KEYS; i+=1) {
-        var key = &inputSys.keys[i]
-        if(ray::IsKeyDown(i)) {
-            if(key.timePressed == 0) {
-                key.timePressed = timeStep.gameClock
-                //printf("Key: %d, Time: %llu\n", i, key.timePressed)
-
-                emitKeyEvent(key, i);
-            }
-        }
-        else if(ray::IsKeyUp(i) && key.timePressed) {
-            key.timePressed = 0
-            //printf("KeyReleased: %d\n", i)
-
-            emitKeyEvent(key, i);
-        }
-    }
-
-    if(ray::IsKeyReleased(ray::KeyboardKey.KEY_CAPS_LOCK)) {
-        inputSys.isCaps = !inputSys.isCaps
-    }
-
-    if(ray::IsKeyReleased(ray::KeyboardKey.KEY_INSERT)) {
-        inputSys.isCaps = !inputSys.isInsert
-    }
+    PollKeyboard(timeStep);
+    PollMouse(timeStep);
 }
 
 public func InputSysRegisterKeyboardHandler(onKey : OnKeyEvent) {
@@ -119,10 +105,105 @@ public func InputSysRegisterKeyboardHandler(onKey : OnKeyEvent) {
 }
 
 public func InputSysRegisterMouseHandler(onMouse : OnMouseEvent) {
-    
+    if(inputSys.numMouseListeners + 1 > MAX_LISTENERS) {
+        log(LogLevel.ERROR, "Unable to register Mouse handler, as the number of registered handlers has exceeded the max: %d \n", MAX_LISTENERS);
+        return;
+    }
+
+    inputSys.mouseListeners[inputSys.numMouseListeners] = onMouse;
+    inputSys.numMouseListeners += 1
 }
 
-func emitKeyEvent(key : Key*, keyCode: i32) {
+func PollKeyboard(timeStep: TimeStep*) {
+    const validKeyIndex = 32
+    for(var i = validKeyIndex; i < MAX_KEYS; i+=1) {
+        var key = &inputSys.keys[i]
+        if(ray::IsKeyDown(i)) {
+            if(key.timePressed == 0) {
+                key.timePressed = timeStep.gameClock
+                key.timeEventEmit = timeStep.gameClock
+                //printf("Key: %d, Time: %llu\n", i, key.timePressed)
+
+                emitKeyEvent(key, i, EventType.PRESSED);
+            }
+            // Allow for long key presses to continuously emit keyEvents
+            else if(key.timePressed < timeStep.gameClock - 200) {
+                if(key.timeEventEmit < timeStep.gameClock - 80) {
+                    key.timeEventEmit = timeStep.gameClock
+                    emitKeyEvent(key, i, EventType.HELD);
+                }
+            }
+        }
+        else if(ray::IsKeyUp(i) && key.timePressed) {
+            key.timePressed = 0
+            key.timeEventEmit = timeStep.gameClock
+            //printf("KeyReleased: %d\n", i)
+
+            emitKeyEvent(key, i, EventType.RELEASED);
+        }
+    }
+
+    if(ray::IsKeyReleased(ray::KeyboardKey.KEY_CAPS_LOCK)) {
+        inputSys.isCaps = !inputSys.isCaps
+    }
+
+    if(ray::IsKeyReleased(ray::KeyboardKey.KEY_INSERT)) {
+        inputSys.isCaps = !inputSys.isInsert
+    }    
+}
+
+func PollMouse(timeStep: TimeStep*) {    
+    for(var i = 0; i < MAX_BUTTONS; i += 1) {
+        var btn = &inputSys.buttons[i]
+        if(ray::IsMouseButtonDown(i)) {
+            if(btn.timePressed == 0) {
+                btn.timePressed = timeStep.gameClock
+                btn.timeEventEmit = timeStep.gameClock
+
+                emitMouseEvent(i, EventType.PRESSED);
+            }
+            // Allow for long button presses to continuously emit mouse events
+            else if(btn.timePressed < timeStep.gameClock - 200) {
+                if(btn.timeEventEmit < timeStep.gameClock - 80) {
+                    btn.timeEventEmit = timeStep.gameClock
+                    emitMouseEvent(i, EventType.HELD);
+                }
+            }
+        }
+        else if(ray::IsMouseButtonUp(i) && btn.timePressed) {
+            btn.timePressed = 0
+            btn.timeEventEmit = timeStep.gameClock
+
+            emitMouseEvent(i, EventType.RELEASED)
+        }
+    }
+
+    var wheelDir = ray::GetMouseWheelMove()
+    if(wheelDir) {
+        emitMouseEvent(-1, EventType.MOUSE_WHEEL)
+    }
+}
+
+func emitMouseEvent(buttonCode: i32, type: EventType) {    
+    var pos = ray::GetMousePosition();
+    var wheelDir = ray::GetMouseWheelMove();
+
+    var event = MouseEvent {
+        .type: type,
+        .button: buttonCode,
+        .pos: pos,
+        .flags: 0,
+        .wheelDir: wheelDir
+    }
+
+    for(var i = 0; i < inputSys.numMouseListeners; i+=1) {
+        if(inputSys.mouseListeners[i](&event)) {
+            break;
+        }
+    }
+}
+
+func emitKeyEvent(key : Key*, keyCode: i32, type: EventType) {
     var mod : Keymods = 0
     if(ray::IsKeyDown(ray::KeyboardKey.KEY_LEFT_SHIFT)) {
         mod |= Keymod.KMOD_LSHIFT
@@ -159,18 +240,15 @@ func emitKeyEvent(key : Key*, keyCode: i32) {
         mod |= Keymod.KMOD_MODE
     }
 
-    var type = KeyType.RELEASED
-    if(key.timePressed > 0) {
-        type = KeyType.PRESSED;
-    }
-
     var event = KeyEvent {
         .type: type,
         .keyCode: keyCode,
-        .mod: mod,
+        .keymods: mod,
     }
 
     for(var i = 0; i < inputSys.numKeyListeners; i+=1) {
-        inputSys.keyListeners[i](&event);
+        if(inputSys.keyListeners[i](&event)) {
+            break;
+        }
     }
 }
