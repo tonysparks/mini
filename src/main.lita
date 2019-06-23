@@ -6,6 +6,7 @@ import "input_system";
 import "console";
 import "game";
 import "wren";
+import "script_system";
 
 var isRunning = false;
 
@@ -41,8 +42,13 @@ func main(len: i32, args: char**) : i32 {
     ConsoleAddCommand("quit", CmdQuit)
     ConsoleAddCommand("exit", CmdQuit)
 
+    ScriptInit();
+    defer ScriptDestroy();
+
     GameInit();
     defer GameDestroy();
+
+
 
     SetTargetFPS(133);
     SetMasterVolume(0.2f)

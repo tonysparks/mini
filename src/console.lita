@@ -242,7 +242,7 @@ public func ConsoleExecute(format: char const*, ...) {
     var pos = 0_u64;
     while(pos < len) {
         var c = text[pos];
-        if(c == ' ') {
+        if(c == ' ') {            
             break;
         }
         if(c == '\0') {
@@ -254,7 +254,7 @@ public func ConsoleExecute(format: char const*, ...) {
 
     var cmd = ConsoleFindCommand(text, pos);
     if(cmd) {
-        cmd.cmd(&text[pos]);
+        cmd.cmd(&text[pos + 1]);
     }
 }
 

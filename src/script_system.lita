@@ -1,0 +1,89 @@
+import "wren";
+import "common";
+import "io";
+import "mem";
+import "console";
+
+var vm : WrenVM* = null
+
+func OnScriptError(vm: WrenVM*, type: WrenErrorType, module_: char const*, line: i32, message: char const*) : void {
+    switch(type) {
+        case WrenErrorType.WREN_ERROR_COMPILE: {
+            log(LogLevel.ERROR, "Wren compile error at line %d in '%s'\n\tError: %s", line, module_, message);
+            break;
+        }
+        case WrenErrorType.WREN_ERROR_RUNTIME: {
+            log(LogLevel.ERROR, "Wren runtime error at line %d in '%s'\n\tError: %s", line, module_, message);
+            break;
+        }
+        case WrenErrorType.WREN_ERROR_STACK_TRACE: {
+            log(LogLevel.ERROR, "Wren stack trace at line %d in '%s'\n\tTrace: %s", line, module_, message);
+            break;
+        }
+    }
+}
+
+ func OnScriptWrite(vm: WrenVM*, text: char const*) {
+     log(LogLevel.INFO, "%s", text);
+     ConsolePrintf("%s\n", text);
+ }
+
+public func ScriptInit() {
+    var config = WrenConfiguration{};
+
+    wrenInitConfiguration(&config);
+    config.errorFn = &OnScriptError
+    config.writeFn = &OnScriptWrite
+
+    vm = wrenNewVM(&config);
+
+    ScriptEval("System.print(\"Script system initialized\")");
+    ConsoleAddCommand("run", &CmdScriptRun)
+}
+
+public func ScriptDestroy() {
+    if(vm) {
+        wrenFreeVM(vm)
+    }
+}
+
+public func ScriptEval(code : char const*, outputSuccess : bool = false) : bool {
+
+    var result = wrenInterpret(vm, "mini", code)
+    switch(result) {
+        case WrenInterpretResult.WREN_RESULT_SUCCESS: {
+            if(outputSuccess) {
+                log(LogLevel.INFO, "script successful")
+            }
+            break;
+        }
+        case WrenInterpretResult.WREN_RESULT_COMPILE_ERROR: {
+            log(LogLevel.ERROR, "script compiled with error")
+            break;
+        }
+        case WrenInterpretResult.WREN_RESULT_RUNTIME_ERROR: {
+            log(LogLevel.ERROR, "script successful")
+            break;
+        }
+    }
+
+    return WrenInterpretResult.WREN_RESULT_SUCCESS == result;
+}
+
+public func ScriptRunFile(filename: char const*) : bool {
+    var buf: char* = null;
+    defer if(buf) cAllocator.free(buf as (void*))
+
+    var status = readFile(filename, &buf, cAllocator)
+    if(status) {
+        return false;
+    }
+
+    var result = ScriptEval(buf)
+    return result
+}
+
+func CmdScriptRun(args: char const*) {
+    ConsolePrintf("Running: '%s'\n", args)
+    ScriptRunFile(args)
+}

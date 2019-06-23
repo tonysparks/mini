@@ -1,0 +1,1 @@
+System.print("Wren from a file")
