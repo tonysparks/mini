@@ -1,0 +1,31 @@
+@include("<cJSON.h>");
+@cFile("src/cJSON.c");
+
+@foreign
+public enum JsonType {
+    cJSON_Invalid = (0)
+    cJSON_False  = (1 << 0)
+    cJSON_True   = (1 << 1)
+    cJSON_NULL   = (1 << 2)
+    cJSON_Number = (1 << 3)
+    cJSON_String = (1 << 4)
+    cJSON_Array  = (1 << 5)
+    cJSON_Object = (1 << 6)
+    cJSON_Raw    = (1 << 7) /* raw json */
+
+    cJSON_IsReference = 256
+    cJSON_StringIsConst = 512
+}
+
+@foreign
+public struct cJSON {
+    next: cJSON*
+    prev: cJSON*
+    child: cJSON*
+    type: JsonType
+
+    valuestring: char*    
+    valueint: i32
+    valuedouble: f64;
+    string: char*;
+} 

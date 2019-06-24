@@ -5,6 +5,8 @@ import "common";
 import "input_system";
 import "console";
 
+import "cjson"
+
 struct Effect {
     pos: Vec2
     anim: Animation

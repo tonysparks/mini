@@ -39,6 +39,28 @@ public func ScriptInit() {
 
     ScriptEval("System.print(\"Script system initialized\")");
     ConsoleAddCommand("run", &CmdScriptRun)
+
+    ScriptRunFile("../assets/scripts/test.wren")
+
+    wrenEnsureSlots(vm, 16)
+    wrenGetVariable(vm, "mini", "map", 0)
+    var map = wrenGetSlotHandle(vm, 0)
+    if(map) {
+        printf("Loaded handle\n")
+        var funcHndl = wrenMakeCallHandle(vm, "[_]")
+        if(!funcHndl) {
+            printf("No func handle\n")
+        }
+        wrenSetSlotHandle(vm, 0, map)
+        wrenSetSlotString(vm, 1, "layers")
+        var result = wrenCall(vm, funcHndl)
+        printf("Func handle found!\n")
+        ScriptResult(result, true)
+
+        printf("return '%s'\n", wrenGetSlotString(vm, 0))
+    }
+
+
 }
 
 public func ScriptDestroy() {
@@ -50,6 +72,10 @@ public func ScriptDestroy() {
 public func ScriptEval(code : char const*, outputSuccess : bool = false) : bool {
 
     var result = wrenInterpret(vm, "mini", code)
+    return ScriptResult(result, outputSuccess)
+}
+
+func ScriptResult(result: WrenInterpretResult, outputSuccess : bool = false) : bool {
     switch(result) {
         case WrenInterpretResult.WREN_RESULT_SUCCESS: {
             if(outputSuccess) {

@@ -1,3 +1,6 @@
-/bin/*.c
-/bin/*.exe
-/lib/*.lib
+bin/*.c
+bin/*.exe
+lib/*.lib
+.vscode/ipch
+bin/mini.exp
+bin/mini.lib
