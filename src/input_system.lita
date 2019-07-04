@@ -94,6 +94,7 @@ public func InputSysUpdate(timeStep: TimeStep*) {
     PollMouse(timeStep);
 }
 
+
 public func InputSysRegisterKeyboardHandler(onKey : OnKeyEvent) {
     if(inputSys.numKeyListeners + 1 > MAX_LISTENERS) {
         log(LogLevel.ERROR, "Unable to register Keyboard handler, as the number of registered handlers has exceeded the max: %d \n", MAX_LISTENERS);

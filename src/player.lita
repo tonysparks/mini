@@ -1,0 +1,216 @@
+import "common"
+import "raylib"
+import "animation"
+import "model"
+
+import "io"
+
+public struct Player {
+    pos: using Vec2
+    vel: Vec2
+    
+    texture: Texture2D
+    model: [PlayerState.COUNT]StateModel
+    state: PlayerState
+    movementFlag: MovementType
+    
+
+    frameWidth: f32
+    frameHeight: f32
+
+    frameTime: Time
+
+    // jumping
+    onGround: bool
+    moveTime: Time
+    jumpAcc: Vec2
+    gravity: Vec2
+}
+
+enum MovementType {
+    MoveLeft = (1<<0),
+    MoveRight= (1<<1),
+
+}
+
+public enum PlayerState {
+    IDLE,
+    RUNNING,
+    JUMPING,
+    FALLING,
+
+    COUNT
+}
+
+public func PlayerInit(p: Player*) {
+    // TODO: Create Asset Manager
+    var tex = LoadTexture("../assets/hero_animation.png");
+
+    var COLS = 12
+    var ROWS = 3
+    
+    p.frameWidth = tex.width  / COLS;
+    p.frameHeight = tex.height / ROWS;
+    
+    p.pos.x -= p.frameWidth/2.0f;
+    p.pos.y -= p.frameHeight/2.0f;
+
+    p.texture = tex;
+    p.state = PlayerState.IDLE;
+
+    const frameTime = 30_i64;
+
+    // IDLE
+    {
+        var m = &p.model[PlayerState.IDLE]
+        StateModelInit(m, frameTime, 1)        
+        m.sprites[0] = Sprite {
+            .tex = tex,
+            .region = Rectangle {
+                .x = p.frameWidth * 4,
+                .y = p.frameHeight * 2,
+                .width = p.frameWidth,
+                .height = p.frameHeight
+            }
+        }
+    }
+
+    // RUN
+    {
+        var m = &p.model[PlayerState.RUNNING]
+        StateModelInit(m, frameTime, 12)
+        m.anim.loop = true
+
+        for(var i = 0; i < 12; i+=1) {
+            m.sprites[i] = Sprite {
+                .tex = tex,
+                .region = Rectangle {
+                    .x = p.frameWidth * i,
+                    .y = p.frameHeight * 0,
+                    .width = p.frameWidth,
+                    .height = p.frameHeight
+                }
+            }
+        }
+    }
+    // JUMP
+    {
+        var m = &p.model[PlayerState.RUNNING]
+        StateModelInit(m, frameTime, 20)
+        m.anim.loop = true
+
+        for(var i = 0; i < 20; i+=1) {
+            m.sprites[i] = Sprite {
+                .tex = tex,
+                .region = Rectangle {
+                    .x = p.frameWidth * (i % 12),
+                    .y = p.frameHeight * (1 + (i > 12) ? 0 : 1),
+                    .width = p.frameWidth,
+                    .height = p.frameHeight
+                }
+            }
+        }
+    }
+    // FALLING
+    {
+        var m = &p.model[PlayerState.RUNNING]
+        StateModelInit(m, frameTime, 20)
+        m.anim.loop = true
+
+        for(var i = 0; i < 20; i+=1) {
+            m.sprites[i] = Sprite {
+                .tex = tex,
+                .region = Rectangle {
+                    .x = p.frameWidth * (i % 12),
+                    .y = p.frameHeight * (1 + (i > 12) ? 0 : 1),
+                    .width = p.frameWidth,
+                    .height = p.frameHeight
+                }
+            }
+        }
+    }
+
+    PlayerSetState(p, PlayerState.IDLE)
+}
+
+public func PlayerDestroy(p: Player*) {
+    // TODO
+}
+
+public func PlayerUpdate(p: Player*, timeStep: TimeStep*) {
+    var m = &p.model[p.state]
+    animationUpdate(&m.anim, timeStep)
+
+    p.frameTime += timeStep.frameTime
+    p.moveTime -= timeStep.frameTime
+
+    p.movementFlag = 0
+
+    if(p.onGround) {
+        PlayerSetState(p, PlayerState.IDLE)
+    }
+
+    if(Vector2Length2(p.vel) > 0) {
+        if(p.vel.x > 0) {
+            p.movementFlag |= MovementType.MoveRight
+            PlayerSetState(p, PlayerState.RUNNING)
+        }
+        else if(p.vel.x < 0) {
+            p.movementFlag |= MovementType.MoveLeft
+            PlayerSetState(p, PlayerState.RUNNING)
+        }
+
+        if(p.vel.y > 0 && p.onGround && p.moveTime <= 0) {
+            PlayerSetState(p, PlayerState.JUMPING)
+            p.moveTime = 580_i64
+            p.jumpAcc.x = 0
+            p.jumpAcc.y = 1600f
+        }
+    }
+
+    var dt = timeStep.frameTimeFraction
+    var speedX = 140f
+    var speedY = 1f
+
+    // if the player is in the air; apply gravity
+    if( (!p.onGround && p.moveTime > 0) || p.state == PlayerState.JUMPING) {
+        p.jumpAcc.y *= 0.76f
+        
+        speedX += 50f
+
+        p.state = PlayerState.JUMPING
+        p.gravity.y -= 24f
+    }
+    else if(!p.onGround || p.state == PlayerState.FALLING) {
+        p.gravity.y -= 24f
+    }
+
+    // TODO: Handle collisions
+    var d = Vec2 {0,0}
+    d.x = (p.vel.x * speedX * dt)
+    d.y = (p.vel.y * speedY * dt) + (p.gravity.y * dt)
+
+}
+
+public func PlayerSetState(p: Player*, s: PlayerState) {
+    p.state = s;
+    var anim = &p.model[s].anim
+    //animationReset(anim)
+    animationPlay(anim)
+}
+
+public func PlayerDraw(p: Player*) {
+    var m = &p.model[p.state]
+    var anim = &m.anim
+        
+    if(anim.numberOfFrames > 0) {
+        var frame = animationCurrentFrame(anim)
+        
+        var r = m.sprites[frame].region
+        if(p.movementFlag & MovementType.MoveLeft) {
+            r.width *= -1
+        }
+
+        DrawTextureRec(p.texture, r, p.pos, WHITE);
+    }
+}

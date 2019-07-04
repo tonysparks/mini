@@ -4,6 +4,7 @@ import "animation";
 import "common";
 import "input_system";
 import "console";
+import "player";
 
 import "cjson"
 
@@ -22,6 +23,8 @@ struct Game {
     nextEffect: i32
     camera: Camera
 
+    player: Player
+
     // Temp
     fxBoom: Sound
     explosionTex: Texture2D
@@ -37,6 +40,37 @@ func GameOnMouseEvent(event: MouseEvent*) : bool {
     }
 
     return false
+}
+
+func GameOnKeyEvent(event: KeyEvent*) : bool {
+    
+    if(event.type == EventType.PRESSED || event.type == EventType.HELD) {
+        if(event.keyCode == KeyboardKey.KEY_LEFT) {
+            game.player.vel.x = -1
+        }
+        else if(event.keyCode == KeyboardKey.KEY_RIGHT) {
+            game.player.vel.x = 1
+        }
+
+        if(event.keyCode == KeyboardKey.KEY_UP) {
+            game.player.vel.y = 1
+        }
+
+        return true;
+    }
+    else if(event.type == EventType.RELEASED) {
+        if(event.keyCode == KeyboardKey.KEY_LEFT || event.keyCode == KeyboardKey.KEY_RIGHT) {
+            game.player.vel.x = 0
+        }
+
+        if(event.keyCode == KeyboardKey.KEY_UP) {
+            game.player.vel.y = 0
+        }
+
+        return true;
+    }
+
+    return false;
 }
 
 public func GameInit() {
@@ -58,17 +92,24 @@ public func GameInit() {
     // Load explosion texture
     game.explosionTex = LoadTexture("../assets/explosion.png");
 
+    PlayerInit(&game.player)
+    game.player.pos = Vec2{30, 40}
 
     InputSysRegisterMouseHandler(&GameOnMouseEvent)
+    InputSysRegisterKeyboardHandler(&GameOnKeyEvent)
 }
 
 public func GameDestroy() {
     UnloadSound(game.fxBoom)
     UnloadTexture(game.explosionTex)
+
+    PlayerDestroy(&game.player)
 }
 
 public func GameUpdate(timeStep: TimeStep*) {
     UpdateCamera(&game.camera);
+
+    PlayerUpdate(&game.player, timeStep)
 
     var effectPool = game.effectPool
 
@@ -77,7 +118,7 @@ public func GameUpdate(timeStep: TimeStep*) {
         var anim = &effect.anim;
         
         if(anim.numberOfFrames > 0) {
-            var f = animationUpdate(anim, timeStep)
+            animationUpdate(anim, timeStep)
                             
             if(animationIsDone(anim)) {                
                 anim.numberOfFrames = 0;
@@ -88,6 +129,8 @@ public func GameUpdate(timeStep: TimeStep*) {
 
 public func GameDraw() {
     var effectPool = game.effectPool
+
+    PlayerDraw(&game.player)
 
     for(var i = 0; i < MAX_EFFECT_POOL; i+=1) {
         var effect = &effectPool[i];

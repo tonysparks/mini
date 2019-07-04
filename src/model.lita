@@ -1,0 +1,42 @@
+import "common"
+import "raylib"
+import "animation"
+
+import "io"
+
+public struct Sprite {
+    tex: Texture2D
+    region: Rectangle
+}
+
+public const MAX_SPRITES = 18
+
+public struct StateModel {
+    anim: Animation
+    isFlipped: bool
+    pos: Vec2
+    offset: Vec2
+    color: Color
+   // sprites: Array<Sprite>; Generics is totally broken :(
+    sprites: [MAX_SPRITES]Sprite
+    numOfSprites: i32
+}
+
+
+public func StateModelInit(m: StateModel*, frameTime: Time, numOfFrames: i32) {
+    m.isFlipped = false
+    m.pos.x = 0
+    m.pos.y = 0
+    m.offset.x = 0
+    m.offset.y = 0
+    m.color = WHITE
+    m.numOfSprites = numOfFrames
+
+    var anim = &m.anim
+    anim.numberOfFrames = numOfFrames;
+    anim.elapsedTime = 0;
+    anim.frameTime = frameTime;
+    anim.currentFrame = 0;
+    anim.loop = false;
+    anim.isPaused = false;
+}
