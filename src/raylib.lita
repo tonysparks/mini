@@ -26,8 +26,6 @@
 
     This notice may not be removed or altered from any source distribution.
 */
-module ray;
-
 @include("<raylib.h>");
 
 @foreign public struct MusicData;
@@ -1117,3 +1115,60 @@ public func Vector2Length2(v: Vector2) : f32 {
 
 // Calculate linear interpolation between two vectors
 @foreign public func Vector2Lerp(v1: Vector2, v2: Vector2, amount: f32) : Vector2;
+
+
+// Rectangle
+public func RectSet(r: Rectangle*, x: f32, y: f32, w: f32, h: f32) {
+    r.x = x
+    r.y = y
+    r.width = w
+    r.height = h
+}
+
+
+public func RectSetPos(r: Rectangle*, x: f32, y: f32) {
+    r.x = x
+    r.y = y
+}
+
+public func RectSetPosV(r: Rectangle*, pos: Vector2) {
+    r.x = pos.x
+    r.y = pos.y
+}
+
+public func RectIntersectsRect(a: Rectangle*, b: Rectangle*) : bool {
+    var tw = a.width;
+    var th = a.height;
+    var rw = b.width;
+    var rh = b.height;
+    if (rw <= 0 || rh <= 0 || tw <= 0 || th <= 0) {
+        return false;
+    }
+    var tx = a.x;
+    var ty = a.y;
+    var rx = b.x;
+    var ry = b.y;
+    rw += rx;
+    rh += ry;
+    tw += tx;
+    th += ty;
+
+    //      overflow || intersect
+    return ((rw < rx || rw > tx) &&
+            (rh < ry || rh > ty) && 
+            (tw < tx || tw > rx) && 
+            (th < ty || th > ry));             
+}
+
+public func RectContainsRect(a: Rectangle*, b: Rectangle*) : bool {
+    var xmin = b.x;
+    var xmax = xmin + b.width;
+
+    var ymin = b.y;
+    var ymax = ymin + b.height;
+
+    return ((xmin > a.x && xmin < a.x + a.width) && 
+            (xmax > a.x && xmax < a.x + a.width)) && 
+           ((ymin > a.y && ymin < a.y + a.height) && 
+            (ymax > a.y && ymax < a.y + a.height));
+}

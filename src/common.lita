@@ -8,6 +8,7 @@ import "raylib";
 @raw("""
     #define MIN(x, y) ((x) <= (y) ? (x) : (y))
     #define MAX(x, y) ((x) >= (y) ? (x) : (y))
+    #define ABS(x)    ((x < 0) ? (x) * -1 : (x))
 """);
 
 
@@ -30,6 +31,7 @@ import "raylib";
 @foreign public func strcmp(a: char const*, b: char const*) : i32;
 @foreign public func MAX(a: i32, b: i32) : i32;
 @foreign public func MIN(a: i32, b: i32) : i32;
+@foreign public func ABS(a: f32) : f32;
 
 public typedef i64 as Time;
 

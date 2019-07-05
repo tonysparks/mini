@@ -27,6 +27,8 @@ func Draw() {
 }
 
 func main(len: i32, args: char**) : i32 {
+    SetConfigFlags(ConfigFlag.FLAG_WINDOW_RESIZABLE|ConfigFlag.FLAG_VSYNC_HINT)
+
     InitWindow(800, 450, "Mini-Game");
     defer CloseWindow();
     
@@ -51,7 +53,7 @@ func main(len: i32, args: char**) : i32 {
 
 
     SetTargetFPS(133);
-    SetMasterVolume(0.2f)
+    SetMasterVolume(0.02f)
     
     var gameClock : Time = 0_i64;
     var currentTime = GetTicks()
@@ -66,7 +68,7 @@ func main(len: i32, args: char**) : i32 {
     const timeStep = TimeStep {
         .frameTime: dt,
         .gameClock: gameClock,
-        .frameTimeFraction: dt / 1000_f64
+        .frameTimeFraction: dt as (f64) / 1000_f64
     }
 
     isRunning = true;

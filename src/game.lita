@@ -4,6 +4,7 @@ import "animation";
 import "common";
 import "input_system";
 import "console";
+import "terrain";
 import "player";
 
 import "cjson"
@@ -18,12 +19,16 @@ struct Effect {
 
 const MAX_EFFECT_POOL = 32;
 
-struct Game {
+public const GRAVITY_Y = 250f
+public const GRAVITY   = Vec2{0, GRAVITY_Y}
+
+public struct Game {
     effectPool: [MAX_EFFECT_POOL]Effect
     nextEffect: i32
     camera: Camera
 
     player: Player
+    terrain: Terrain
 
     // Temp
     fxBoom: Sound
@@ -43,7 +48,7 @@ func GameOnMouseEvent(event: MouseEvent*) : bool {
 }
 
 func GameOnKeyEvent(event: KeyEvent*) : bool {
-    
+    /*
     if(event.type == EventType.PRESSED || event.type == EventType.HELD) {
         if(event.keyCode == KeyboardKey.KEY_LEFT) {
             game.player.vel.x = -1
@@ -57,7 +62,7 @@ func GameOnKeyEvent(event: KeyEvent*) : bool {
         }
 
         return true;
-    }
+    }*//*
     else if(event.type == EventType.RELEASED) {
         if(event.keyCode == KeyboardKey.KEY_LEFT || event.keyCode == KeyboardKey.KEY_RIGHT) {
             game.player.vel.x = 0
@@ -68,7 +73,7 @@ func GameOnKeyEvent(event: KeyEvent*) : bool {
         }
 
         return true;
-    }
+    }*/
 
     return false;
 }
@@ -84,19 +89,21 @@ public func GameInit() {
 
     SetCameraMode(game.camera, CameraMode.CAMERA_FREE);
 
-
+    // TODO: Proper asset management
     // Load explosion sound
     game.fxBoom = LoadSound("../assets/boom.wav");
-    
-
     // Load explosion texture
     game.explosionTex = LoadTexture("../assets/explosion.png");
+    /// ~~
+
+    // TODO: Load terrain data
+    TerrainInit(&game.terrain, null)
 
     PlayerInit(&game.player)
     game.player.pos = Vec2{30, 40}
 
     InputSysRegisterMouseHandler(&GameOnMouseEvent)
-    InputSysRegisterKeyboardHandler(&GameOnKeyEvent)
+    // InputSysRegisterKeyboardHandler(&GameOnKeyEvent)
 }
 
 public func GameDestroy() {
@@ -104,12 +111,25 @@ public func GameDestroy() {
     UnloadTexture(game.explosionTex)
 
     PlayerDestroy(&game.player)
+    TerrainDestroy(&game.terrain)
 }
 
 public func GameUpdate(timeStep: TimeStep*) {
     UpdateCamera(&game.camera);
 
-    PlayerUpdate(&game.player, timeStep)
+    if(InputSysIsKeyPressed(KeyboardKey.KEY_LEFT)) {
+        PlayerMoveLeft(&game.player)
+    } 
+    else if(InputSysIsKeyPressed(KeyboardKey.KEY_RIGHT)) {
+        PlayerMoveRight(&game.player)
+    }
+
+    if(InputSysIsKeyPressed(KeyboardKey.KEY_UP)) {
+        PlayerJump(&game.player)
+    }
+
+
+    PlayerUpdate(&game.player, &game, timeStep)
 
     var effectPool = game.effectPool
 

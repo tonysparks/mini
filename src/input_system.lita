@@ -28,7 +28,7 @@ public enum Keymod {
 public enum EventType {
     PRESSED,
     RELEASED,
-    HELD,
+    HELD,    
     MOUSE_WHEEL,
 }
 
@@ -113,6 +113,16 @@ public func InputSysRegisterMouseHandler(onMouse : OnMouseEvent) {
 
     inputSys.mouseListeners[inputSys.numMouseListeners] = onMouse;
     inputSys.numMouseListeners += 1
+}
+
+public func InputSysIsKeyPressed(k: ray::KeyboardKey) : bool {
+    var key = &inputSys.keys[k]
+    return key.timePressed > 0
+}
+
+public func InputSysIsButtonPressed(b: ray::MouseButton) : bool {
+    var btn = &inputSys.buttons[b]
+    return btn.timePressed > 0
 }
 
 func PollKeyboard(timeStep: TimeStep*) {

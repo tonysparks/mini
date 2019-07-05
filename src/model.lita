@@ -9,7 +9,7 @@ public struct Sprite {
     region: Rectangle
 }
 
-public const MAX_SPRITES = 18
+public const MAX_SPRITES = 32
 
 public struct StateModel {
     anim: Animation
@@ -39,4 +39,8 @@ public func StateModelInit(m: StateModel*, frameTime: Time, numOfFrames: i32) {
     anim.currentFrame = 0;
     anim.loop = false;
     anim.isPaused = false;
+}
+
+public func StateModelReset(m: StateModel*) {
+    animationReset(&m.anim)
 }
