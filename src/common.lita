@@ -29,9 +29,18 @@ import "raylib";
 @foreign public func strlen(str: char const*) : i32;
 @foreign public func strncmp(a: char const*, b: char const*, num: u64) : i32;
 @foreign public func strcmp(a: char const*, b: char const*) : i32;
+@foreign public func snprintf(s: char*, n: u64, format: char const*, ...): i32;
+
+@foreign public func isspace(c: char) : bool;
+//@foreign func strlen(str: char const*) : u64;
+//@foreign func strncmp(a: char const*, b: char const*, size: i32) : u64;
+@foreign public func strtol(str: char const*, end: char**, base: i32) : i64;
+@foreign public func strtod(str: char const*, end: char**) : f64;
+
 @foreign public func MAX(a: i32, b: i32) : i32;
 @foreign public func MIN(a: i32, b: i32) : i32;
 @foreign public func ABS(a: f32) : f32;
+
 
 public typedef i64 as Time;
 

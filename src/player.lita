@@ -8,8 +8,10 @@ import "io"
 
 public struct Player {
     pos: using Vec2
+    prevPos: Vec2
     vel: Vec2
     collisionBounds: Rectangle
+    headCollisionBounds: Rectangle
     
     texture: Texture2D
     model: [PlayerState.COUNT]StateModel
@@ -25,6 +27,7 @@ public struct Player {
 
     // jumping
     onGround: bool
+    wasOnGround: bool
     moveTime: Time
     jumpAcc: Vec2
     gravity: Vec2
@@ -61,9 +64,16 @@ public func PlayerInit(p: Player*) {
     p.texture = tex;
     p.state = PlayerState.IDLE;
     p.onGround = false;
+    p.wasOnGround = false;
 
     p.gravity.x = GRAVITY.x
     p.gravity.y = GRAVITY.y
+
+    p.collisionBounds.width  = 16
+    p.collisionBounds.height = 32
+    p.headCollisionBounds.width  = 16
+    p.headCollisionBounds.height = 8
+
 
     const frameTime = 30_i64;
 
@@ -157,13 +167,11 @@ public func PlayerJump(p: Player*) {
 }
 
 public func PlayerUpdate(p: Player*, game: Game*, timeStep: TimeStep*) {
-    var m = &p.model[p.state]
-    animationUpdate(&m.anim, timeStep)
-
     p.frameTime += timeStep.frameTime
     p.moveTime -= timeStep.frameTime
 
     p.movementFlag = 0
+    p.prevPos = p.pos
 
     if(p.onGround) {
         PlayerSetState(p, PlayerState.IDLE)
@@ -179,7 +187,7 @@ public func PlayerUpdate(p: Player*, game: Game*, timeStep: TimeStep*) {
         else if(p.vel.x < 0) {
             p.movementFlag |= MovementType.MoveLeft
             p.lastFacing = p.movementFlag
-            
+
             PlayerSetState(p, PlayerState.RUNNING)
         }
 
@@ -209,7 +217,6 @@ public func PlayerUpdate(p: Player*, game: Game*, timeStep: TimeStep*) {
         p.gravity.y += 24f
     }
 
-    // TODO: Handle collisions
     var d = Vec2 {0,0}
     d.x = (p.vel.x * speedX * dt)
     d.y = (p.vel.y * speedY * dt) + (p.gravity.y * dt)
@@ -226,7 +233,6 @@ public func PlayerUpdate(p: Player*, game: Game*, timeStep: TimeStep*) {
 
         if(TerrainRectCollides(&game.terrain, &p.collisionBounds)) {
             xPos -= xDelta
-//            printf("CollidedX\n")
             break;
         }
 
@@ -248,16 +254,32 @@ public func PlayerUpdate(p: Player*, game: Game*, timeStep: TimeStep*) {
         p.onGround = false
 
         if(TerrainRectCollides(&game.terrain, &p.collisionBounds)) {
+
+            p.headCollisionBounds.x = xPos
+            p.headCollisionBounds.y = yPos// + 8
+            if(TerrainRectCollides(&game.terrain, &p.headCollisionBounds)) {
+                PlayerSetState(p, PlayerState.FALLING)        
+                p.onGround = false
+                p.gravity.y = GRAVITY_Y/4f
+                p.jumpAcc.y = 0
+            }
+            else {
+                if(!p.wasOnGround) {
+                    p.moveTime = 80
+                }
+                p.onGround = true
+                p.gravity.y = GRAVITY_Y
+            }
+
             yPos -= yDelta
-            p.onGround = true
-            p.gravity.y = GRAVITY_Y
             StateModelReset(&p.model[PlayerState.JUMPING])
-            //printf("CollidedY\n")
             break;
         }
 
         yMove -= 1
     }
+
+    p.wasOnGround = p.onGround
 
     if(p.pos.y != yPos && p.state != PlayerState.JUMPING) {
         PlayerSetState(p, PlayerState.FALLING)
@@ -270,6 +292,9 @@ public func PlayerUpdate(p: Player*, game: Game*, timeStep: TimeStep*) {
         StateModelReset(&p.model[PlayerState.JUMPING])
     }
 
+    var m = &p.model[p.state]
+    animationUpdate(&m.anim, timeStep)
+    
     p.vel.x = 0
     p.vel.y = 0
 }
@@ -299,7 +324,8 @@ public func PlayerDraw(p: Player*) {
             }
         }
 
-        DrawTextureRec(p.texture, r, p.pos, WHITE);
+        var pos = Vec2{p.pos.x - 8, p.pos.y}
+        DrawTextureRec(p.texture, r, pos, WHITE);
     }
 
     if(false)

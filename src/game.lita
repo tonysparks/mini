@@ -25,9 +25,9 @@ public const GRAVITY   = Vec2{0, GRAVITY_Y}
 public struct Game {
     effectPool: [MAX_EFFECT_POOL]Effect
     nextEffect: i32
-    camera: Camera
+    camera: Camera2D
 
-    player: Player
+    player: Player    
     terrain: Terrain
 
     // Temp
@@ -79,7 +79,7 @@ func GameOnKeyEvent(event: KeyEvent*) : bool {
 }
 
 public func GameInit() {
-    game.camera = Camera {
+    /*game.camera = Camera {
         .position: Vector3{10.0f,10.0f,10.0f},
         .target: Vector3{0.0f,0.0f,0.0f},
         .up: Vector3{0.0f,1.0f,0.0f},
@@ -87,7 +87,14 @@ public func GameInit() {
         .type: CameraType.CAMERA_PERSPECTIVE
     }
 
-    SetCameraMode(game.camera, CameraMode.CAMERA_FREE);
+    SetCameraMode(game.camera, CameraMode.CAMERA_FREE);*/
+
+    game.camera = Camera2D {
+        .offset: Vector2{GetScreenWidth() / 2f, GetScreenHeight() / 2f},
+        .target: Vector2{0,0},
+        .rotation: 0,
+        .zoom: 1f,
+    }
 
     // TODO: Proper asset management
     // Load explosion sound
@@ -96,8 +103,15 @@ public func GameInit() {
     game.explosionTex = LoadTexture("../assets/explosion.png");
     /// ~~
 
+    var filename = "../assets/level1.txt"
+    var data : char* = null
+    var status = readFile(filename, &data);
+    if(status != FileStatus.Ok) {
+        log(LogLevel.FATAL, "*** Unable to open %s\n", filename)
+    }
+
     // TODO: Load terrain data
-    TerrainInit(&game.terrain, null)
+    TerrainInit(&game.terrain, data)
 
     PlayerInit(&game.player)
     game.player.pos = Vec2{30, 40}
@@ -114,8 +128,31 @@ public func GameDestroy() {
     TerrainDestroy(&game.terrain)
 }
 
+func GameUpdateCamera() {
+    //UpdateCamera(&game.camera);
+    var maxHeight = game.terrain.height * game.terrain.tileHeight
+
+    var dx = game.player.pos.x - game.player.prevPos.x
+    var dy = game.player.pos.y - game.player.prevPos.y
+    game.camera.offset.x -= dx
+    game.camera.offset.y -= dy
+
+    var px = game.player.pos.x
+    var py = game.player.pos.y
+
+    px = 0//px < GetScreenWidth() ? 0 : px + GetScreenWidth() / 2f
+    py = 0//py < GetScreenHeight() ? 0 : py + GetScreenHeight() / 2f
+
+    game.camera.target = Vec2{
+        .x = px,// - GetScreenWidth() / 2f,
+        .y = py, //- GetScreenHeight() / 2f,
+        // //game.player.pos.y - GetScreenHeight() / 2f,
+    }
+    
+}
+
 public func GameUpdate(timeStep: TimeStep*) {
-    UpdateCamera(&game.camera);
+    GameUpdateCamera()
 
     if(InputSysIsKeyPressed(KeyboardKey.KEY_LEFT)) {
         PlayerMoveLeft(&game.player)
@@ -124,7 +161,8 @@ public func GameUpdate(timeStep: TimeStep*) {
         PlayerMoveRight(&game.player)
     }
 
-    if(InputSysIsKeyPressed(KeyboardKey.KEY_UP)) {
+    if(InputSysIsKeyPressed(KeyboardKey.KEY_UP) ||
+       InputSysIsKeyPressed(KeyboardKey.KEY_SPACE)) {
         PlayerJump(&game.player)
     }
 
@@ -149,7 +187,9 @@ public func GameUpdate(timeStep: TimeStep*) {
 
 public func GameDraw() {
     var effectPool = game.effectPool
+    BeginMode2D(game.camera)
 
+    TerrainDraw(&game.terrain)
     PlayerDraw(&game.player)
 
     for(var i = 0; i < MAX_EFFECT_POOL; i+=1) {
@@ -172,6 +212,8 @@ public func GameDraw() {
             DrawTextureRec(effect.texture, frameRec, effect.pos, WHITE);
         }
     }
+
+    EndMode2D()
 }
 
 
