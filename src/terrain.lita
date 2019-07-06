@@ -247,14 +247,135 @@ public func TerrainRectCollides(terrain: Terrain*, rect: Rectangle*) : bool {
     return false;
 }
 
-public func TerrainDraw(terrain: Terrain*) {
+public func TerrainDraw(terrain: Terrain*, camera: Camera2D*) {
+    
+    var rect = Rectangle {
+        camera.target.x,
+        camera.target.y,
+        GetScreenWidth(),
+        GetScreenHeight()
+    }
+
+    var pixelX = 0;
+    var pixelY = 0;
+
+    var indexX = 0;
+    var indexY = 0;
+    
+    var toIndexX = 0;
+    var toIndexY = 0;
+    
+    // Current Tile offset (to pixels)
+    var tileOffsetX = -(rect.x as (i32) % terrain.tileWidth);
+    toIndexX        = (tileOffsetX + rect.x as (i32)) / terrain.tileWidth;
+
+    // current tile y offset (to pixels)
+    var tileOffsetY = -(rect.y as (i32) % terrain.tileHeight);
+    toIndexY        = (tileOffsetY + rect.y as (i32)) / terrain.tileHeight;
+    
+    toIndexX = MAX(toIndexX, 0)
+    toIndexY = MAX(toIndexY, 0)
+
+    indexY = toIndexY;
+    for (pixelY = 0;
+         indexY < terrain.height;) {
+
+        pixelX = 0;
+        indexX = toIndexX;
+
+        for (;indexX < terrain.width;) {
+            for (var i = 0; i < terrain.numOfLayers; i+=1) {
+                var layer = &terrain.layers[i]
+                
+                var index = (indexY * terrain.width) + indexX 
+                var tileId = layer.tiles[index]
+                if(tileId < 1) {
+                    continue;
+                }
+
+                var tile = &terrain.tileCache[tileId-1]
+                var pos = Vec2 {
+                    pixelX, pixelY
+                }
+
+                DrawTextureRec(tile.tex, tile.region, pos, WHITE);                
+            }
+            pixelX += terrain.tileWidth;
+            indexX += 1;
+        }
+
+        pixelY += terrain.tileHeight; 
+        indexY += 1;
+    }
+
+    /*
     for(var i = 0; i < terrain.numOfLayers; i+=1) {
         var layer = &terrain.layers[i]
-        DrawLayer(terrain, layer)
-    }
+        DrawLayer(terrain, layer, camera)
+    }*/
 }
 
-func DrawLayer(terrain: Terrain*, layer: Layer*) {
+// TODO: Profile and see if this is faster...
+func DrawLayer(terrain: Terrain*, layer: Layer*, camera: Camera2D*) {
+    var rect = Rectangle {
+        camera.target.x,
+        camera.target.y,
+        GetScreenWidth(),
+        GetScreenHeight()
+    }
+
+    var pixelX = 0;
+    var pixelY = 0;
+
+    var indexX = 0;
+    var indexY = 0;
+    
+    var toIndexX = 0;
+    var toIndexY = 0;
+    
+    // Current Tile offset (to pixels)
+    var tileOffsetX = -(rect.x as (i32) % terrain.tileWidth);
+    toIndexX        = (tileOffsetX + rect.x as (i32)) / terrain.tileWidth;
+
+    // current tile y offset (to pixels)
+    var tileOffsetY = -(rect.y as (i32) % terrain.tileHeight);
+    toIndexY        = (tileOffsetY + rect.y as (i32)) / terrain.tileHeight;
+    
+    toIndexX = MAX(toIndexX, 0)
+    toIndexY = MAX(toIndexY, 0)
+
+    indexY = toIndexY;
+    for (pixelY = 0;
+         indexY < terrain.height;) {
+
+        pixelX = 0;
+        indexX = toIndexX;
+
+        for (;indexX < terrain.width;) {
+            var index = (indexY * terrain.width) + indexX 
+            var tileId = layer.tiles[index]
+            if(!tileId) {
+                continue;
+            }
+
+            var tile = &terrain.tileCache[tileId-1]
+            var pos = Vec2 {
+                pixelX, pixelY
+            }
+
+            DrawTextureRec(tile.tex, tile.region, pos, WHITE);
+            
+            pixelX += terrain.tileWidth;
+            indexX += 1;
+        }
+
+        pixelY += terrain.tileHeight; 
+        indexY += 1;
+    }    
+}
+
+/*
+func DrawLayer(terrain: Terrain*, layer: Layer*, camera: Camera2D*) {
     var x = 0
     var y = 0
     
@@ -280,4 +401,4 @@ func DrawLayer(terrain: Terrain*, layer: Layer*) {
             x = 0
         }
     }
-}
+}*/

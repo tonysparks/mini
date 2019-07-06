@@ -27,6 +27,7 @@
     This notice may not be removed or altered from any source distribution.
 */
 @include("<raylib.h>");
+@include("<raymath.h>");
 
 @foreign public struct MusicData;
 public typedef Texture2D as Texture;
