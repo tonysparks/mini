@@ -10,6 +10,7 @@ public struct Player {
     pos: using Vec2
     prevPos: Vec2
     vel: Vec2
+    forces: Vec2
     collisionBounds: Rectangle
     headCollisionBounds: Rectangle
     
@@ -60,6 +61,9 @@ public func PlayerInit(p: Player*) {
     
     p.pos.x -= p.frameWidth/2.0f;
     p.pos.y -= p.frameHeight/2.0f;
+
+    p.forces.x = 0
+    p.forces.y = 0
 
     p.texture = tex;
     p.state = PlayerState.IDLE;
@@ -163,7 +167,40 @@ public func PlayerMoveRight(p: Player*) {
 }
 
 public func PlayerJump(p: Player*) {
-    p.vel.y = -1
+    p.vel.y = -1    
+}
+
+public func PlayerBlasted(p: Player*, blast: Rectangle*) {
+
+    var splash = Rectangle {
+        0,0, blast.width * 4, blast.height * 4
+    }
+
+    var blastPos = RectGetCenter(blast)
+    RectCenterV(&splash, blastPos)
+
+
+    if(RectIntersectsRect(&p.collisionBounds, &splash)) {
+        //printf("Blasted!\n")
+        var pushForce = 250f
+
+        var delta = Vector2Subtract(p.pos, blastPos)        
+        delta = Vector2Normalize(delta)
+
+        var dist = Vector2Distance(blastPos, p.pos)
+        var factor = 0f
+        if(dist > 0) {
+            factor = 1f / dist
+        }
+
+        // direct hit!
+        if(RectIntersectsRect(&p.collisionBounds, blast)) {
+            //pushForce *= 2f
+        }
+
+        p.forces = Vec2MA(p.forces, pushForce * factor, delta)
+        p.forces.x *= 0.8f
+    }
 }
 
 public func PlayerUpdate(p: Player*, game: Game*, timeStep: TimeStep*) {
@@ -195,17 +232,17 @@ public func PlayerUpdate(p: Player*, game: Game*, timeStep: TimeStep*) {
             PlayerSetState(p, PlayerState.JUMPING)
             p.moveTime = 580_i64
             p.jumpAcc.x = 0
-            p.jumpAcc.y = -1600f
+            p.jumpAcc.y = -10f // -1600f
         }
     }
 
     var dt = timeStep.frameTimeFraction
     var speedX = 140f
-    var speedY = 1f
+    var speedY = 140f
 
     // if the player is in the air; apply gravity
     if( (!p.onGround && p.moveTime > 0) || p.state == PlayerState.JUMPING) {
-        p.vel.y = p.jumpAcc.y
+        p.vel.y = p.forces.y + p.jumpAcc.y
         p.jumpAcc.y *= 0.76f
         
         speedX += 50f
@@ -216,6 +253,10 @@ public func PlayerUpdate(p: Player*, game: Game*, timeStep: TimeStep*) {
     else if(!p.onGround || p.state == PlayerState.FALLING) {
         p.gravity.y += 24f
     }
+
+    p.vel = Vector2Add(p.vel, p.forces)
+    p.forces.x *= 0.75f
+    p.forces.y *= 0.75f
 
     var d = Vec2 {0,0}
     d.x = (p.vel.x * speedX * dt)
@@ -294,7 +335,7 @@ public func PlayerUpdate(p: Player*, game: Game*, timeStep: TimeStep*) {
 
     var m = &p.model[p.state]
     animationUpdate(&m.anim, timeStep)
-    
+
     p.vel.x = 0
     p.vel.y = 0
 }

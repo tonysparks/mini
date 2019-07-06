@@ -37,11 +37,30 @@ const game = Game{}
 
 func GameOnMouseEvent(event: MouseEvent*) : bool {    
     if (event.type == EventType.PRESSED && event.button == MouseButton.MOUSE_LEFT_BUTTON) {
-        CreateExplosion(game.explosionTex);
-        PlaySound(game.fxBoom);
+        CreateExplosion(Vector2Subtract(GetMousePosition(), game.camera.offset));        
         return true
     }
 
+    return false
+}
+
+func GameOnKeyEvent(event: KeyEvent*) : bool {
+    if (event.type == EventType.RELEASED && event.keyCode == KeyboardKey.KEY_SPACE) {
+        /*var delta = Vector2Subtract(game.player.prevPos, game.player.pos)
+        
+        printf("N: %f, %f\n", delta.x, delta.y)
+        if(Vector2Length2(delta) < 0.01f) {
+            delta.x =  0
+            delta.y = +1
+            printf("Zoer\n")
+        }
+        else {
+            delta = Vector2Normalize(delta)
+        }*/
+        var delta = Vec2{0, 1}
+        CreateExplosion(Vec2MA(game.player.pos, 24f, delta));
+        return true;
+    }
     return false
 }
 
@@ -74,7 +93,7 @@ public func GameInit() {
     game.player.pos = Vec2{30, 40}
 
     InputSysRegisterMouseHandler(&GameOnMouseEvent)
-    // InputSysRegisterKeyboardHandler(&GameOnKeyEvent)
+    InputSysRegisterKeyboardHandler(&GameOnKeyEvent)
 }
 
 public func GameDestroy() {
@@ -115,7 +134,6 @@ func GameCameraPos(p: Vec2) : Vec2 {
 }
 
 func GameUpdateCamera() {
-    //UpdateCamera(&game.camera);
     var maxHeight = game.terrain.height * game.terrain.tileHeight
 
     var pos  = GameCameraPos(game.player.pos)
@@ -129,42 +147,30 @@ func GameUpdateCamera() {
 
     game.camera.target.x = 0//pos.x
     game.camera.target.y = 0//pos.y
-
-    /*
-    var dx = game.player.pos.x - game.player.prevPos.x
-    var dy = game.player.pos.y - game.player.prevPos.y
-    game.camera.offset.x -= dx
-    game.camera.offset.y -= dy
-
-    var px = game.player.pos.x
-    var py = game.player.pos.y
-
-    px = 0//px < GetScreenWidth() ? 0 : px + GetScreenWidth() / 2f
-    py = 0//py < GetScreenHeight() ? 0 : py + GetScreenHeight() / 2f
-
-    game.camera.target = Vec2{
-        .x = px,// - GetScreenWidth() / 2f,
-        .y = py, //- GetScreenHeight() / 2f,
-        // //game.player.pos.y - GetScreenHeight() / 2f,
-    }*/
-    
 }
 
 public func GameUpdate(timeStep: TimeStep*) {
     GameUpdateCamera()
 
-    if(InputSysIsKeyPressed(KeyboardKey.KEY_LEFT)) {
+    if(InputSysIsKeyPressed(KeyboardKey.KEY_LEFT) || 
+       InputSysIsKeyPressed(KeyboardKey.KEY_A)) {
         PlayerMoveLeft(&game.player)
     } 
-    else if(InputSysIsKeyPressed(KeyboardKey.KEY_RIGHT)) {
+    else if(InputSysIsKeyPressed(KeyboardKey.KEY_RIGHT) || 
+            InputSysIsKeyPressed(KeyboardKey.KEY_D)) {
         PlayerMoveRight(&game.player)
     }
 
     if(InputSysIsKeyPressed(KeyboardKey.KEY_UP) ||
-       InputSysIsKeyPressed(KeyboardKey.KEY_SPACE)) {
+       //InputSysIsKeyPressed(KeyboardKey.KEY_SPACE)||
+       InputSysIsKeyPressed(KeyboardKey.KEY_W)) {
         PlayerJump(&game.player)
     }
 
+    if(InputSysIsKeyPressed(KeyboardKey.KEY_SPACE)) {
+        //PlayerJump(&game.player)
+        //CreateExplosion(game.player.prevPos);
+    }
 
     PlayerUpdate(&game.player, &game, timeStep)
 
@@ -217,16 +223,23 @@ public func GameDraw() {
 
 
 
-func CreateExplosion(tex: Texture2D) : Effect* {
+func CreateExplosion(pos: Vec2) : Effect* {
     const NUM_FRAMES = 8;
     const NUM_LINES = 6;
     var effectPool = game.effectPool
 
+    var tex = game.explosionTex
     var effect = &effectPool[game.nextEffect];    
     //printf("Cam: %f, %f  -- Mouse %f, %f\n", game.camera.offset.x, game.camera.offset.y, 
     //                                         GetMousePosition().x, GetMousePosition().y)
-    effect.pos = Vector2Subtract(GetMousePosition(), game.camera.offset)
+    effect.pos = pos
+    //Vector2Subtract(GetMousePosition(), game.camera.offset)
     
+    var blastRadius = Rectangle{effect.pos.x, effect.pos.y, 64, 64}
+    RectCenterV(&blastRadius, effect.pos)
+
+    PlayerBlasted(&game.player, &blastRadius)
+
     var frameWidth = tex.width  / NUM_FRAMES;
     var frameHeight = tex.height / NUM_LINES;
     effect.pos.x -= frameWidth/2.0f;
@@ -247,6 +260,7 @@ func CreateExplosion(tex: Texture2D) : Effect* {
     game.nextEffect = (game.nextEffect + 1) % MAX_EFFECT_POOL;
     
     animationPlay(anim)
+    PlaySound(game.fxBoom)
     
     return effect;
 }

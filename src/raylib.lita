@@ -1117,6 +1117,14 @@ public func Vector2Length2(v: Vector2) : f32 {
 // Calculate linear interpolation between two vectors
 @foreign public func Vector2Lerp(v1: Vector2, v2: Vector2, amount: f32) : Vector2;
 
+public func Vec2MA(v1: Vector2, scalar: f32, v2: Vector2) : Vector2 {
+    var x = v2.x * scalar
+    var y = v2.y * scalar
+
+    return Vector2{
+        v1.x + x, v1.y + y
+    }
+}
 
 // Rectangle
 public func RectSet(r: Rectangle*, x: f32, y: f32, w: f32, h: f32) {
@@ -1126,6 +1134,22 @@ public func RectSet(r: Rectangle*, x: f32, y: f32, w: f32, h: f32) {
     r.height = h
 }
 
+public func RectCenterV(r: Rectangle*, v: Vector2) {
+    r.x = v.x - r.width/2f
+    r.y = v.y - r.height/2f    
+}
+
+public func RectCenter(r: Rectangle*, x: f32, y: f32) {
+    r.x = x - r.width/2f
+    r.y = y - r.height/2f    
+}
+
+public func RectGetCenter(r: Rectangle*) : Vector2 {    
+    return Vector2 {
+        r.x + r.width/2f,
+        r.y + r.height/2f,
+    }
+}
 
 public func RectSetPos(r: Rectangle*, x: f32, y: f32) {
     r.x = x
