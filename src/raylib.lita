@@ -26,6 +26,15 @@
 
     This notice may not be removed or altered from any source distribution.
 */
+@raw("""
+#define SUPPORT_FILEFORMAT_OBJ 1
+#define SUPPORT_FILEFORMAT_IQM 1
+#define SUPPORT_MESH_GENERATION 1
+
+#include <raylib.h>
+#include <raymath.h>
+""");
+
 @include("<raylib.h>");
 @include("<raymath.h>");
 
