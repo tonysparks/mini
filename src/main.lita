@@ -8,6 +8,9 @@ import "game";
 import "wren";
 import "script_system";
 
+import "string_buffer";
+import "json";
+
 var isRunning = false;
 
 func CmdQuit(args: char const*) {
@@ -27,6 +30,18 @@ func Draw() {
 }
 
 func main(len: i32, args: char**) : i32 {
+
+    var node = Parse("""
+        [
+          true, 4
+        ]
+    """);
+
+    var buf : StringBuffer;
+    buf.init(16)
+    
+    PrintJson(node, &buf)
+
     SetConfigFlags(ConfigFlag.FLAG_WINDOW_RESIZABLE|ConfigFlag.FLAG_VSYNC_HINT)
 
     InitWindow(800, 450, "Mini-Game");

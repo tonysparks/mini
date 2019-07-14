@@ -3,9 +3,15 @@ import "mem"
 import "raylib"
 import "config"
 //import "game"
+import "camera"
 
 import "io"
 
+enum TerrainFlag {
+    FLIPPED_HORIZONTALLY = 0x80000000,
+    FLIPPED_VERTICALLY   = 0x40000000,
+    FLIPPED_DIAGONALLY   = 0x20000000,
+}
 
 struct Tile {
     region: Rectangle
@@ -32,7 +38,7 @@ public enum LayerFlags {
 public struct Layer {
     flags: i32
     name: [MAX_LAYER_NAME]char
-    tiles: i32*
+    tiles: u32*
     numOfTiles: i32
 }
 
@@ -55,9 +61,8 @@ public struct Terrain {
     tileCache: Tile*
 }
 
-public func TerrainInit(terrain: Terrain*, 
-                        rawdata: char const*,
-                        alloc: Allocator const* = null) {
+public func (terrain: Terrain*) init(rawdata: char const*,
+                                     alloc: Allocator const* = null) {
 
     if(!alloc) {
         alloc = cAllocator
@@ -159,7 +164,7 @@ public func TerrainInit(terrain: Terrain*,
         entry = ConfigGetEntry(&config, buf)
 
         layer.numOfTiles = (width * height)
-        layer.tiles = alloc.alloc(sizeof(i32) * layer.numOfTiles);
+        layer.tiles = alloc.alloc(sizeof(u32) * layer.numOfTiles);
         terrain.numOfLayers += 1
         
         var val = entry.value.start
@@ -174,7 +179,7 @@ public func TerrainInit(terrain: Terrain*,
             }
 
             var end: char*;
-            var tileId = strtol(val, &end, 10) as (i32)
+            var tileId = strtoul(val, &end, 10) as (u32)            
             val = end 
 
             layer.tiles[index] = tileId
@@ -183,11 +188,11 @@ public func TerrainInit(terrain: Terrain*,
     }
 }
 
-public func TerrainDestroy(terrain: Terrain*) {
+public func (terrain: Terrain*) destroy() {
     // TODO
 }
 
-public func TerrainRectCollides(terrain: Terrain*, rect: Rectangle*) : bool {
+public func (terrain: Terrain*) rectCollides(rect: Rectangle*) : bool {
     if(!RectContainsRect(&terrain.worldBounds, rect)) {
         return true
     }
@@ -247,11 +252,11 @@ public func TerrainRectCollides(terrain: Terrain*, rect: Rectangle*) : bool {
     return false;
 }
 
-public func TerrainDraw(terrain: Terrain*, camera: Camera2D*) {
+public func (terrain: Terrain*) draw(camera: GameCamera*) {
     
     var rect = Rectangle {
-        camera.target.x,
-        camera.target.y,
+        camera.camera.target.x,
+        camera.camera.target.y,
         GetScreenWidth(),
         GetScreenHeight()
     }
@@ -289,6 +294,16 @@ public func TerrainDraw(terrain: Terrain*, camera: Camera2D*) {
                 
                 var index = (indexY * terrain.width) + indexX 
                 var tileId = layer.tiles[index]
+                
+                var flippedHorizontally = (tileId & TerrainFlag.FLIPPED_HORIZONTALLY) != 0;
+                var flippedVertically = (tileId & TerrainFlag.FLIPPED_VERTICALLY) != 0; 
+                var flippedDiagonally = (tileId & TerrainFlag.FLIPPED_DIAGONALLY) != 0;
+
+                tileId &= ~(TerrainFlag.FLIPPED_HORIZONTALLY |
+                            TerrainFlag.FLIPPED_VERTICALLY |
+                            TerrainFlag.FLIPPED_DIAGONALLY);
+
+
                 if(tileId < 1) {
                     continue;
                 }
@@ -297,8 +312,43 @@ public func TerrainDraw(terrain: Terrain*, camera: Camera2D*) {
                 var pos = Vec2 {
                     pixelX, pixelY
                 }
+                var region = Rectangle{tile.region.x, tile.region.y, tile.region.width, tile.region.height}
 
-                DrawTextureRec(tile.tex, tile.region, pos, WHITE);                
+                if(flippedDiagonally) {
+                    var rotation = 0f
+
+                    var target = Rectangle{pixelX + tile.region.width/2f, pixelY + tile.region.height/2f, 
+                                           tile.region.width, tile.region.height}
+
+                    var origin = Vec2{tile.region.width/2f, tile.region.height/2f}
+
+                    if(flippedHorizontally && flippedVertically) {
+                        region.width *= -1
+                        region.height *= -1 
+                        rotation = -270f
+                        DrawTexturePro(tile.tex, region, target, origin, rotation, WHITE)
+                    }
+                    else if(flippedHorizontally) {
+                        rotation = -270f
+                        
+                        DrawTexturePro(tile.tex, region, target, origin, rotation, WHITE)
+                    }
+                    else if(flippedVertically) {
+                        rotation = -90f                        
+                        DrawTexturePro(tile.tex, region, target, origin, rotation, WHITE)
+                    }
+                    else {
+                        region.height *= -1 
+                        rotation = -270f
+                        DrawTexturePro(tile.tex, region, target, origin, rotation, WHITE)
+                    }
+                }
+                else {
+                    if(flippedHorizontally) region.width  *= -1
+                    if(flippedVertically)   region.height *= -1 
+
+                    DrawTextureRec(tile.tex, region, pos, WHITE);                
+                }
             }
             pixelX += terrain.tileWidth;
             indexX += 1;
@@ -316,10 +366,11 @@ public func TerrainDraw(terrain: Terrain*, camera: Camera2D*) {
 }
 
 // TODO: Profile and see if this is faster...
-func DrawLayer(terrain: Terrain*, layer: Layer*, camera: Camera2D*) {
+/*
+func DrawLayer(terrain: Terrain*, layer: Layer*, camera: GameCamera*) {
     var rect = Rectangle {
-        camera.target.x,
-        camera.target.y,
+        camera.pos.x,
+        camera.pos.y,
         GetScreenWidth(),
         GetScreenHeight()
     }
@@ -374,7 +425,7 @@ func DrawLayer(terrain: Terrain*, layer: Layer*, camera: Camera2D*) {
     }    
 }
 
-/*
+
 func DrawLayer(terrain: Terrain*, layer: Layer*, camera: Camera2D*) {
     var x = 0
     var y = 0

@@ -1,0 +1,161 @@
+import "common"
+import "raylib"
+import "game"
+import "terrain"
+import "input_system"
+
+public struct GameCamera {
+    camera: using Camera2D
+    pos: Vec2
+    prevPos: Vec2
+    vel: Vec2
+    bounds: Rectangle
+}
+
+public func (c: using GameCamera*) init() {
+    camera = Camera2D {
+        .offset: Vec2{0,0}, 
+        .target: Vec2{0,0},
+        .rotation: 0,
+        .zoom: 1f,
+    }
+
+    pos = Vec2{50, 50}
+    bounds = Rectangle{0,0,GetScreenWidth(), GetScreenHeight()}
+}
+
+public func (c: GameCamera*) update(timeStep: TimeStep*, game: Game*) {
+    c.handleInputs()
+
+    c.prevPos = c.pos
+
+    var dt = timeStep.frameTimeFraction as (f32)
+    const speed = 300f
+    var speedX = speed
+    var speedY = speed
+
+    var d = Vec2 {0,0}
+    d.x = (c.vel.x * speedX * dt)
+    d.y = (c.vel.y * speedY * dt)
+
+    var xMove: f32 = ABS(d.x) as (i32)
+    var xDelta: f32 = d.x < 0 ? -1 : 1
+    var xPos: f32 = c.pos.x
+
+    while(xMove > 0) {
+        xPos += xDelta
+        c.bounds.x = xPos
+
+        if(game.terrain.rectCollides(&c.bounds)) {
+            xPos -= xDelta
+            break;
+        }
+
+        xMove -= 1
+    }
+
+    c.pos.x = xPos
+    c.bounds.x = xPos
+
+    var yMove: f32 = ABS(d.y) as (i32)
+    var yDelta: f32 = d.y < 0 ? -1 : 1
+    var yPos: f32 = c.pos.y
+
+    while(yMove > 0) {
+        yPos += yDelta
+        c.bounds.y = yPos
+
+        if(game.terrain.rectCollides(&c.bounds)) {
+            yPos -= yDelta
+            break;
+        }
+
+        yMove -= 1
+    }
+
+    c.pos.y = yPos
+    c.bounds.y = yPos
+
+    var maxHeight = game.terrain.height * game.terrain.tileHeight
+
+    var pos  = c.centerCameraPos(game, c.pos)
+    var prev = c.centerCameraPos(game, c.prevPos)
+
+    var dx = pos.x - prev.x
+    var dy = pos.y - prev.y
+    
+    c.camera.offset.x -= dx
+    c.camera.offset.y -= dy
+
+    c.camera.target.x = 0
+    c.camera.target.y = 0
+
+    c.vel.x = 0
+    c.vel.y = 0
+}
+
+func (c: GameCamera*) cameraMoveUp() {
+    c.vel.y = -1
+}
+
+func (c: GameCamera*) cameraMoveDown() {
+    c.vel.y = 1
+}
+
+func (c: GameCamera*) cameraMoveLeft() {
+    c.vel.x = -1
+}
+
+func (c: GameCamera*) cameraMoveRight() {
+    c.vel.x = 1
+}
+
+func (c: GameCamera*) handleInputs() {
+    if(InputSysIsKeyPressed(KeyboardKey.KEY_LEFT) || 
+       InputSysIsKeyPressed(KeyboardKey.KEY_A)) {
+        c.cameraMoveLeft()
+    } 
+    else if(InputSysIsKeyPressed(KeyboardKey.KEY_RIGHT) || 
+            InputSysIsKeyPressed(KeyboardKey.KEY_D)) {
+        c.cameraMoveRight()
+    }
+
+    if(InputSysIsKeyPressed(KeyboardKey.KEY_UP) ||
+       InputSysIsKeyPressed(KeyboardKey.KEY_W)) {
+        c.cameraMoveUp()
+    }
+    else if(InputSysIsKeyPressed(KeyboardKey.KEY_DOWN) ||       
+            InputSysIsKeyPressed(KeyboardKey.KEY_S)) {        
+        c.cameraMoveDown()
+    }
+}
+
+
+// Centers the camera around the player, not allowing the camera
+// to go off the world bounds
+func (c: GameCamera*) centerCameraPos(game: Game*, p: Vec2) : Vec2 {
+
+    var halfWidth = GetScreenWidth() / 2f
+    var halfHeight = GetScreenHeight() / 2f
+
+    var camX = p.x
+    var camY = p.y
+
+    if(p.y + halfHeight > game.terrain.worldBounds.height) {
+        camY = game.terrain.worldBounds.height - halfHeight
+    }
+
+    if(p.y - halfHeight < 0) {
+        camY = halfHeight
+    }
+
+    if(p.x - halfWidth < 0) {
+        camX = halfWidth
+    }
+
+    if(p.x + halfWidth > game.terrain.worldBounds.width) {
+        camX = game.terrain.worldBounds.width - halfWidth
+    }
+
+    return Vec2{camX, camY}
+}

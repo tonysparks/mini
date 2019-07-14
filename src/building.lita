@@ -1,0 +1,25 @@
+import "common"
+import "raylib"
+
+import "gang"
+
+/**
+    Criminal activity which can take
+    place in a building
+*/    
+@asStr
+public enum Activity {    
+    DRUGS        = (1<<0),
+    PROSTITUTION = (1<<1),
+    ARMS         = (1<<2),
+    LAUNDER      = (1<<3),
+    HAVEN        = (1<<4),
+}
+
+public struct Building {    
+    name: [MAX_NAME]char
+    affiliated: Gang*
+    bounds: using Rectangle
+    loyalty: i32
+    activities: i32
+}

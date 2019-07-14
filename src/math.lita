@@ -1,0 +1,56 @@
+import "raylib"
+
+@inline
+public func (r: Rectangle*) intersectsRect(b: Rectangle*) : bool {
+    return RectIntersectsRect(r, b)
+}
+
+@inline
+public func (r: Rectangle*) containsRect(b: Rectangle*) : bool {
+    return RectContainsRect(r, b)
+}
+
+@inline
+public func (r: Rectangle*) containsV(b: Vector2) : bool {
+    return RectangleContainsV(r, b)
+}
+
+@inline
+public func (r: Rectangle*) set(x: f32, y: f32, w: f32, h: f32) {
+    r.x = x
+    r.y = y
+    r.width = w
+    r.height = h
+}
+
+@inline
+public func (r: Rectangle*) centerV(v: Vector2) {
+    r.x = v.x - r.width/2f
+    r.y = v.y - r.height/2f    
+}
+
+@inline
+public func (r: Rectangle*) center(x: f32, y: f32) {
+    r.x = x - r.width/2f
+    r.y = y - r.height/2f    
+}
+
+@inline
+public func (r: Rectangle*) getCenter() : Vector2 {    
+    return Vector2 {
+        r.x + r.width/2f,
+        r.y + r.height/2f,
+    }
+}
+
+@inline
+public func (r: Rectangle*) setPos(x: f32, y: f32) {
+    r.x = x
+    r.y = y
+}
+
+@inline
+public func (r: Rectangle*) setPosV(pos: Vector2) {
+    r.x = pos.x
+    r.y = pos.y
+}

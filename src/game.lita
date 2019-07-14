@@ -1,85 +1,82 @@
 import "io";
 import "raylib";
+import "raygui";
 import "animation";
 import "common";
 import "input_system";
 import "console";
 import "terrain";
-import "player";
+import "camera";
+import "math";
+import "string_buffer";
 
-struct Effect {
-    pos: Vec2
-    anim: Animation
-    texture: Texture2D
-    rowNum: i32
-    colNum: i32    
+import "gang";
+import "building";
+
+public const MAX_BUILDINGS = 32
+public const MAX_GANGS = 4
+
+struct Gui {
+    building: Building*
+    closed: bool
+    buffer: StringBuffer
+    font: Font
 }
 
-const MAX_EFFECT_POOL = 32;
-
-public const GRAVITY_Y = 250f
-public const GRAVITY   = Vec2{0, GRAVITY_Y}
-
 public struct Game {
-    effectPool: [MAX_EFFECT_POOL]Effect
-    nextEffect: i32
-    camera: Camera2D
-
-    player: Player    
+    camera: GameCamera
+    guiCamera: Camera2D
     terrain: Terrain
 
-    // Temp
-    fxBoom: Sound
-    explosionTex: Texture2D
+    gui: Gui
+
+    buildings: [MAX_BUILDINGS]Building
+    numOfBuildings: i32
+
+    gangs: [MAX_GANGS]Gang
+    numOfGangs: i32
 }
 
 const game = Game{}
 
-func GameOnMouseEvent(event: MouseEvent*) : bool {    
-    if (event.type == EventType.PRESSED && event.button == MouseButton.MOUSE_LEFT_BUTTON) {
-        CreateExplosion(Vector2Subtract(GetMousePosition(), game.camera.offset));        
-        return true
+func GameOnMouseEvent(event: MouseEvent*) : bool {   
+    var pos = Vector2Subtract(GetMousePosition(), game.camera.camera.offset) 
+    if (event.type == EventType.PRESSED && event.button == MouseButton.MOUSE_LEFT_BUTTON) {      
+        for(var i = 0; i < game.numOfBuildings; i+=1) {
+            var b = &game.buildings[i]
+            if(b.bounds.containsV(pos)) {
+                game.gui.building = b
+                game.gui.closed = false
+                return true
+            }
+        }
     }
 
     return false
 }
 
 func GameOnKeyEvent(event: KeyEvent*) : bool {
-    if (event.type == EventType.RELEASED && event.keyCode == KeyboardKey.KEY_SPACE) {
-        /*var delta = Vector2Subtract(game.player.prevPos, game.player.pos)
-        
-        printf("N: %f, %f\n", delta.x, delta.y)
-        if(Vector2Length2(delta) < 0.01f) {
-            delta.x =  0
-            delta.y = +1
-            printf("Zoer\n")
-        }
-        else {
-            delta = Vector2Normalize(delta)
-        }*/
-        var delta = Vec2{0, 1}
-        CreateExplosion(Vec2MA(game.player.pos, 24f, delta));
+    if (event.type == EventType.RELEASED && event.keyCode == KeyboardKey.KEY_SPACE) {        
         return true;
     }
     return false
 }
 
 public func GameInit() {
-    game.camera = Camera2D {
+    game.camera.init()
+
+    game.guiCamera = Camera2D {
         .offset: Vec2{0,0}, 
         .target: Vec2{0,0},
         .rotation: 0,
         .zoom: 1f,
     }
 
-    // TODO: Proper asset management
-    // Load explosion sound
-    game.fxBoom = LoadSound("../assets/boom.wav");
-    // Load explosion texture
-    game.explosionTex = LoadTexture("../assets/explosion.png");
-    /// ~~
+    game.gui.buffer.init(32)
+    game.gui.building = null
+    game.gui.font = LoadFont("../assets/Consola.ttf")
 
-    var filename = "../assets/level1.txt"
+    var filename = "../assets/level2.txt"
     var data : char* = null
     var status = readFile(filename, &data);
     if(status != FileStatus.Ok) {
@@ -87,180 +84,109 @@ public func GameInit() {
     }
 
     // TODO: Load terrain data
-    TerrainInit(&game.terrain, data)
+    game.terrain.init(data)
 
-    PlayerInit(&game.player)
-    game.player.pos = Vec2{30, 40}
+
+    // TEMP
+    game.gangs[0].init("Three One's");
+    game.gangs[1].init("Lord's");
+    game.gangs[2].init("Disciple's");
+
+    game.buildings[0] = Building {
+        .name: "4647 S. 31st St.",
+        .bounds: Rectangle{256, 192, 128, 160},
+        .loyalty: 32,
+        .activities: (Activity.DRUGS|Activity.ARMS),
+        .affiliated: &game.gangs[0],
+    }
+    game.numOfBuildings = 1
+    // END TEMP
 
     InputSysRegisterMouseHandler(&GameOnMouseEvent)
     InputSysRegisterKeyboardHandler(&GameOnKeyEvent)
 }
 
-public func GameDestroy() {
-    UnloadSound(game.fxBoom)
-    UnloadTexture(game.explosionTex)
-
-    PlayerDestroy(&game.player)
-    TerrainDestroy(&game.terrain)
-}
-
-// Centers the camera around the player, not allowing the camera
-// to go off the world bounds
-func GameCameraPos(p: Vec2) : Vec2 {
-
-    var halfWidth = GetScreenWidth() / 2f
-    var halfHeight = GetScreenHeight() / 2f
-
-    var camX = p.x
-    var camY = p.y
-
-    if(p.y + halfHeight > game.terrain.worldBounds.height) {
-        camY = game.terrain.worldBounds.height - halfHeight
-    }
-
-    if(p.y - halfHeight < 0) {
-        camY = halfHeight
-    }
-
-    if(p.x - halfWidth < 0) {
-        camX = halfWidth
-    }
-
-    if(p.x + halfWidth > game.terrain.worldBounds.width) {
-        camX = game.terrain.worldBounds.width - halfWidth
-    }
-
-    return Vec2{camX, camY}
-}
-
-func GameUpdateCamera() {
-    var maxHeight = game.terrain.height * game.terrain.tileHeight
-
-    var pos  = GameCameraPos(game.player.pos)
-    var prev = GameCameraPos(game.player.prevPos)
-
-    var dx = pos.x - prev.x
-    var dy = pos.y - prev.y
-    
-    game.camera.offset.x -= dx
-    game.camera.offset.y -= dy
-
-    game.camera.target.x = 0//pos.x
-    game.camera.target.y = 0//pos.y
+public func GameDestroy() {    
+    game.terrain.destroy()
 }
 
 public func GameUpdate(timeStep: TimeStep*) {
-    GameUpdateCamera()
-
-    if(InputSysIsKeyPressed(KeyboardKey.KEY_LEFT) || 
-       InputSysIsKeyPressed(KeyboardKey.KEY_A)) {
-        PlayerMoveLeft(&game.player)
-    } 
-    else if(InputSysIsKeyPressed(KeyboardKey.KEY_RIGHT) || 
-            InputSysIsKeyPressed(KeyboardKey.KEY_D)) {
-        PlayerMoveRight(&game.player)
-    }
-
-    if(InputSysIsKeyPressed(KeyboardKey.KEY_UP) ||
-       //InputSysIsKeyPressed(KeyboardKey.KEY_SPACE)||
-       InputSysIsKeyPressed(KeyboardKey.KEY_W)) {
-        PlayerJump(&game.player)
-    }
-
-    if(InputSysIsKeyPressed(KeyboardKey.KEY_SPACE)) {
-        //PlayerJump(&game.player)
-        //CreateExplosion(game.player.prevPos);
-    }
-
-    PlayerUpdate(&game.player, &game, timeStep)
-
-    var effectPool = game.effectPool
-
-    for(var i = 0; i < MAX_EFFECT_POOL; i+=1) {
-        var effect = &effectPool[i];
-        var anim = &effect.anim;
-        
-        if(anim.numberOfFrames > 0) {
-            animationUpdate(anim, timeStep)
-                            
-            if(animationIsDone(anim)) {                
-                anim.numberOfFrames = 0;
-            }
-        }
-    }
+    game.camera.update(timeStep, &game)
 }
 
 public func GameDraw() {
-    var effectPool = game.effectPool
-    BeginMode2D(game.camera)
-
-    TerrainDraw(&game.terrain, &game.camera)
-    PlayerDraw(&game.player)
-
-    for(var i = 0; i < MAX_EFFECT_POOL; i+=1) {
-        var effect = &effectPool[i];
-        var anim = &effect.anim;
-        
-        if(anim.numberOfFrames > 0) {
-            var frame = animationCurrentFrame(anim)
-                                
-            var currentFrame = frame % effect.colNum 
-            var currentLine  = (frame / effect.colNum) as (i32)
-
-            var frameWidth = effect.texture.width  / effect.colNum;
-            var frameHeight = effect.texture.height / effect.rowNum;
-
-            var frameRec = Rectangle { 0.0f, 0.0f, frameWidth, frameHeight };
-            frameRec.x = frameWidth  * currentFrame;
-            frameRec.y = frameHeight * currentLine;
-            
-            DrawTextureRec(effect.texture, frameRec, effect.pos, WHITE);
-        }
+    BeginMode2D(game.camera.camera)
+    {
+        game.terrain.draw(&game.camera)
     }
+    EndMode2D()
 
+    BeginMode2D(game.guiCamera)
+    {
+        DrawGui()
+    }
     EndMode2D()
 }
 
+func DrawGui() {    
+    var g = &game.gui
+    if(g.closed || !g.building) {
+        return;
+    }
+
+    GuiFont(g.font)
+    GuiSetStyle(GuiControl.LABEL, GuiControlProperty.TEXT_COLOR_NORMAL, 0x000000ff)
+    GuiSetStyle(GuiControl.DEFAULT, GuiDefaultProperty.TEXT_SIZE, 12)
+
+    g.closed = GuiWindowBox(Rectangle{ 5, 5, 240, 400 }, g.building.name);
+    
+    //GuiCheckBox(Rectangle{ 25, 108, 15, 15 }, "Force Square", true);
+
+    
+    g.buffer.append("Loyalty to you:")
+    GuiLabel(Rectangle{ 10, 30, 100, 25 }, g.buffer.cStr()); 
+    g.buffer.clear()
+
+    GuiSetStyle(GuiControl.LABEL, GuiControlProperty.TEXT_COLOR_NORMAL, 0xff0000ff)
+    g.buffer.append("%d / 100", g.building.loyalty)
+    GuiLabel(Rectangle{ 130, 30, 100, 25 }, g.buffer.cStr());
+    g.buffer.clear()
+    
+    GuiSetStyle(GuiControl.LABEL, GuiControlProperty.TEXT_COLOR_NORMAL, 0x000000ff)
+    g.buffer.append("Affiliated with:")
+    GuiLabel(Rectangle{ 10, 50, 100, 25 }, g.buffer.cStr()); 
+    g.buffer.clear()
+
+    
+    GuiSetStyle(GuiControl.LABEL, GuiControlProperty.TEXT_COLOR_NORMAL, 0xff0000ff)    
+    g.buffer.append("%s", (g.building.affiliated != null) ? g.building.affiliated.name as (char*) : "--")
+    GuiLabel(Rectangle{ 130, 50, 100, 25 }, g.buffer.cStr()); 
+    g.buffer.clear()
 
 
-func CreateExplosion(pos: Vec2) : Effect* {
-    const NUM_FRAMES = 8;
-    const NUM_LINES = 6;
-    var effectPool = game.effectPool
+    var a = g.building.activities
+    var x = 15
+    var y = 90
+    
+    GuiSetStyle(GuiControl.LABEL, GuiControlProperty.TEXT_COLOR_NORMAL, 0x000000ff)
 
-    var tex = game.explosionTex
-    var effect = &effectPool[game.nextEffect];    
-    //printf("Cam: %f, %f  -- Mouse %f, %f\n", game.camera.offset.x, game.camera.offset.y, 
-    //                                         GetMousePosition().x, GetMousePosition().y)
-    effect.pos = pos
-    //Vector2Subtract(GetMousePosition(), game.camera.offset)
-    
-    var blastRadius = Rectangle{effect.pos.x, effect.pos.y, 64, 64}
-    RectCenterV(&blastRadius, effect.pos)
+    GuiLock()
+    GuiCheckBox(Rectangle{ x, y, 15, 15 }, "Drug House", a & Activity.DRUGS);
+    y += 25
+    GuiCheckBox(Rectangle{ x, y, 15, 15 }, "Prostitution Ring", a & Activity.PROSTITUTION);
+    y += 25
+    GuiCheckBox(Rectangle{ x, y, 15, 15 }, "Arms", a & Activity.ARMS);
+    y += 25
+    GuiCheckBox(Rectangle{ x, y, 15, 15 }, "Money Laundering", a & Activity.LAUNDER);
+    y += 25
+    GuiCheckBox(Rectangle{ x, y, 15, 15 }, "Safe Haven", a & Activity.HAVEN);
+    y += 25
+    GuiUnlock()
 
-    PlayerBlasted(&game.player, &blastRadius)
+    //GuiLabel(Rectangle{ 0, 20, 100, 25 }, "test"); 
+    
+}
 
-    var frameWidth = tex.width  / NUM_FRAMES;
-    var frameHeight = tex.height / NUM_LINES;
-    effect.pos.x -= frameWidth/2.0f;
-    effect.pos.y -= frameHeight/2.0f;
-                        
-    effect.texture = tex;
-    effect.colNum = NUM_FRAMES
-    effect.rowNum = NUM_LINES
-    
-    var anim = &effect.anim    
-    anim.numberOfFrames = NUM_FRAMES * NUM_LINES;
-    anim.elapsedTime = 0;
-    anim.frameTime = 30_i64;
-    anim.currentFrame = 0;
-    anim.loop = false;
-    anim.isPaused = false;
-    
-    game.nextEffect = (game.nextEffect + 1) % MAX_EFFECT_POOL;
-    
-    animationPlay(anim)
-    PlaySound(game.fxBoom)
-    
-    return effect;
+func DrawBuildingInfoGui() {
+
 }

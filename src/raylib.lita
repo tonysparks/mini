@@ -1197,3 +1197,23 @@ public func RectContainsRect(a: Rectangle*, b: Rectangle*) : bool {
            ((ymin > a.y && ymin < a.y + a.height) && 
             (ymax > a.y && ymax < a.y + a.height));
 }
+
+
+public func RectangleContainsV(a: Rectangle*, b: Vector2) : bool {
+        var w = a.width as (i32);
+        var h = a.height as (i32);
+        if ((w | h) < 0) {
+            // At least one of the dimensions is negative...
+            return false;
+        }
+        // Note: if either dimension is zero, tests below must return false...
+        var x = a.x;
+        var y = a.y;
+        if (b.x < x || b.y < y) {
+            return false;
+        }
+        w += x;
+        h += y;
+        //    overflow || intersect
+        return ((w < x || w > b.x) && (h < y || h > b.y));
+    }

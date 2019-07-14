@@ -1,0 +1,29 @@
+import "common"
+import "raylib"
+import "array"
+
+public const MAX_NAME = 32
+
+public struct GangMember {
+    name: [MAX_NAME]char
+    loyalty: i32
+    bounds: Rectangle
+}
+
+public struct Gang {
+    name: [MAX_NAME]char
+    members: Array<GangMember>
+}
+
+public func (g: Gang*) init(name: char const*) {
+    strncpy(g.name, name, MAX_NAME)
+    g.members.init(16)
+}
+
+public func (g: Gang*) addMember(member: GangMember) {
+    g.members.add(member)
+}
+
+public func (g: Gang*) destroy() {
+    g.members.free()
+}
