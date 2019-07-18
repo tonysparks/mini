@@ -1,18 +1,156 @@
 import "common"
 import "raylib"
 import "array"
+import "model"
+import "animation"
 
 public const MAX_NAME = 32
+
+public struct Character {
+    bounds: Rectangle
+
+    state: State
+    dir: Direction
+
+    texture: Texture2D
+    model: [State.MAX][Direction.MAX]StateModel
+}
+
+/*
+public (c: Character*) draw() {
+
+}*/
+
+public enum State {
+    IDLE,
+    WALKING,
+    // others
+
+    MAX
+}
+
+public enum Direction {
+    NORTH,
+    EAST,
+    SOUTH,
+    WEST,
+
+    MAX
+}
 
 public struct GangMember {
     name: [MAX_NAME]char
     loyalty: i32
-    bounds: Rectangle
+    
+    character: using Character
+}
+
+public func (g: GangMember*) init(/*config: JsonNode* */) {
+    // TODO: Create Asset Manager
+    var tex = LoadTexture("../assets/images/members.png");
+    var COLS = 12
+    var ROWS = 8
+
+    g.bounds.x = 20
+    g.bounds.y = 20
+    g.bounds.width = tex.width / COLS
+    g.bounds.height = tex.height / ROWS
+
+    g.texture = tex
+    g.state = State.IDLE
+    g.dir = Direction.SOUTH
+
+    const frameTime = 30_i64;
+
+    var indexX = 0
+    var indexY = 0
+
+    // IDLE/SOUTH
+    {
+        var m = &g.model[State.IDLE][Direction.SOUTH]
+        m.init(frameTime, 1)        
+
+        m.sprites[0] = Sprite {
+            .tex = tex,
+            .region = Rectangle {
+                .x = indexX + g.bounds.width * 1,
+                .y = indexY + g.bounds.height * 0,
+                .width = g.bounds.width,
+                .height = g.bounds.width
+            }
+        }
+    }
+    // IDLE/EAST
+    {
+        var m = &g.model[State.IDLE][Direction.EAST]
+        m.init(frameTime, 1)        
+
+        m.sprites[0] = Sprite {
+            .tex = tex,
+            .region = Rectangle {
+                .x = indexX + g.bounds.width * 1,
+                .y = indexY + g.bounds.height * 2,
+                .width = g.bounds.width,
+                .height = g.bounds.width
+            }
+        }
+    }    
+    // IDLE/WEST
+    {
+        var m = &g.model[State.IDLE][Direction.WEST]
+        m.init(frameTime, 1)        
+
+        m.sprites[0] = Sprite {
+            .tex = tex,
+            .region = Rectangle {
+                .x = indexX + g.bounds.width * 1,
+                .y = indexY + g.bounds.height * 1,
+                .width = g.bounds.width,
+                .height = g.bounds.width
+            }
+        }
+    }        
+    // IDLE/NORTH
+    {
+        var m = &g.model[State.IDLE][Direction.NORTH]
+        m.init(frameTime, 1)        
+
+        m.sprites[0] = Sprite {
+            .tex = tex,
+            .region = Rectangle {
+                .x = indexX + g.bounds.width * 1,
+                .y = indexY + g.bounds.height * 3,
+                .width = g.bounds.width,
+                .height = g.bounds.width
+            }
+        }
+    }        
+}
+
+public func (g: GangMember*) update(timeStep: TimeStep*) {
+    var m = &g.model[g.state][g.dir]
+    var anim = &m.anim
+
+    animationUpdate(anim, timeStep)
+}
+
+public func (g: GangMember*) draw() {
+    var m = &g.model[g.state][g.dir]
+    var anim = &m.anim
+
+    if(anim.numberOfFrames > 0) {
+        var frame = animationCurrentFrame(anim)
+        
+        var r = m.sprites[frame].region
+
+        var pos = Vec2{g.bounds.x, g.bounds.y}
+        DrawTextureRec(g.texture, r, pos, WHITE);
+    }    
 }
 
 public struct Gang {
     name: [MAX_NAME]char
-    members: Array<GangMember>
+    members: Array<GangMember*>
 }
 
 public func (g: Gang*) init(name: char const*) {
@@ -20,10 +158,28 @@ public func (g: Gang*) init(name: char const*) {
     g.members.init(16)
 }
 
-public func (g: Gang*) addMember(member: GangMember) {
+public func (g: Gang*) addMember(member: GangMember*) {
     g.members.add(member)
 }
 
 public func (g: Gang*) destroy() {
+    for(var i = 0; i < g.members.size(); i+=1) {
+        var m = g.members.get(i)
+        // m.free()
+    }
     g.members.free()
+}
+
+public func (g: Gang*) update(timeStep: TimeStep*) {
+    for(var i = 0; i < g.members.size(); i+=1) {
+        var m = g.members.get(i)
+        m.update(timeStep)
+    }
+}
+
+public func (g: Gang*) draw() {
+    for(var i = 0; i < g.members.size(); i+=1) {
+        var m = g.members.get(i)
+        m.draw()
+    }
 }

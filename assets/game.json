@@ -1,0 +1,21 @@
+{
+    "gangs": [
+        {
+            "name" : "Three-One's",
+            "members": [
+                {
+                    "name": "Guy #1",
+                    "loyalty": 100
+                },
+                {
+                    "name": "Guy #2",
+                    "loyalty": 100
+                },
+                {
+                    "name": "Guy #3",
+                    "loyalty": 100
+                }
+            ]
+        }
+    ]
+}

@@ -4,7 +4,7 @@ import "raylib"
 import "config"
 //import "game"
 import "camera"
-
+import "json"
 import "io"
 
 enum TerrainFlag {
@@ -69,53 +69,52 @@ public func (terrain: Terrain*) init(rawdata: char const*,
     }
 
     terrain.alloc = alloc
+    
+    var parser = Parser{}
+    parser.init(alloc)
+    defer parser.free()
 
-    var config = Config{}
-    ParseConfig(&config, rawdata, alloc);
-
-    if(config.status != ConfigStatus.OK) {
-        log(LogLevel.FATAL, "ERROR: Config parsing error '%s'\n", config.error)
+    var node = parser.parseJson(rawdata)
+    if(parser.hasError()) {
+        log(LogLevel.FATAL, "ERROR: Config parsing error '%s'\n", parser.errorMsg)
     }
 
-    //ConfigPrint(&config)
+    var width = node.getInt("width")
+    var height = node.getInt("height")
 
-    var width = ConfigGetEntryValueAsInt(&config, "width")
-    var height = ConfigGetEntryValueAsInt(&config, "height")
-    
-
-    var tileWidth = ConfigGetEntryValueAsInt(&config, "tileWidth")
-    var tileHeight = ConfigGetEntryValueAsInt(&config, "tileHeight")
+    var tileWidth = node.getInt("tilewidth")
+    var tileHeight = node.getInt("tileheight")
 
     terrain.width = width; terrain.height = height; terrain.tileWidth = tileWidth; terrain.tileHeight = tileHeight;
     RectSet(&terrain.worldBounds, 0, 0, (width*tileWidth) as (i32), (height*tileHeight) as (i32))    
 
     const N = 128
     var buf: [N]char;
-    var valueBuf: [N]char;
 
     var maxTiles = 0
-    for(var i = 0; i < MAX_TILESETS; i+=1) {
-        snprintf(buf, N, "tileset%d.path", i)
-        var entry = ConfigGetEntry(&config, buf)
-        if(!entry) {
-            break;
+    var tileSets = node.getArray("tilesets")
+    if(tileSets) {
+        for(var i = 0; i < MAX_TILESETS && i < tileSets.size(); i+=1) {            
+            var entry = tileSets.at(i)
+            if(!entry) {
+                break;
+            }
+
+            var image = entry.getStr("image", "no_image_path")
+            snprintf(buf, N, "../assets/images/%s", image)
+            var tex = LoadTexture(buf);
+
+            var firstid = entry.getInt("firstgid")
+            
+            var tileSet = &terrain.tileSets[i]
+            tileSet.tex = tex;
+            tileSet.firstId = firstid;
+            terrain.numOfTileSets += 1
+
+            var w = tex.width / tileWidth
+            var h = tex.height / tileHeight
+            maxTiles += (w * h)
         }
-
-        ConfigEntryAsString(entry, valueBuf, N)
-        var tex = LoadTexture(valueBuf);
-
-
-        snprintf(buf, N, "tileset%d.firstid", i)
-        var firstid = ConfigGetEntryValueAsInt(&config, buf, 0)
-        
-        var tileSet = &terrain.tileSets[i]
-        tileSet.tex = tex;
-        tileSet.firstId = firstid;
-        terrain.numOfTileSets += 1
-
-        var w = tex.width / tileWidth
-        var h = tex.height / tileHeight
-        maxTiles += (w * h)
     }
 
     terrain.tileCache = terrain.alloc.alloc(sizeof(Tile) * maxTiles)
@@ -143,47 +142,46 @@ public func (terrain: Terrain*) init(rawdata: char const*,
         }
     }
 
-    for(var i = 0; i < MAX_LAYERS; i+=1) {
-        snprintf(buf, N, "layer%d.name", i)
-        var entry = ConfigGetEntry(&config, buf)
-        if(!entry) {
-            break;
-        }
-
-        var len = ConfigEntryAsString(entry, valueBuf, MAX_LAYER_NAME)
-        var layer = &terrain.layers[i]
-        memcpy(layer.name as (void*), valueBuf as (void*), len)
-        
-        snprintf(buf, N, "layer%d.collidable", i)
-        var isCollidable = ConfigGetEntryValueAsInt(&config, buf, 0)
-        if(isCollidable) {
-            layer.flags |= LayerFlags.IS_COLLIDABLE
-        }
-
-        snprintf(buf, N, "layer%d.data", i)
-        entry = ConfigGetEntry(&config, buf)
-
-        layer.numOfTiles = (width * height)
-        layer.tiles = alloc.alloc(sizeof(u32) * layer.numOfTiles);
-        terrain.numOfLayers += 1
-        
-        var val = entry.value.start
-        var index = 0
-        
-        for(var t = 0; t < entry.value.len && *val && index < layer.numOfTiles; t+=1) {
-            defer val += 1
-            var c = *val
+    var layers = node.getArray("layers")
+    if(layers) {
+        for(var i = 0; i < MAX_LAYERS && i < layers.size(); i+=1) {
+            var entry = layers.at(i)
+            if(!entry) {
+                break;
+            }
             
-            if(c == ',' || isspace(c)) {                
-                continue
+            var layer = &terrain.layers[i]
+            var name = entry.getStr("name", "")
+            strncpy(layer.name as (void*), name as (void*), MAX_LAYER_NAME)
+            
+            var props = entry.getArray("properties")
+            if(props) {
+                for(var p = 0; p < props.size(); p += 1) {
+                    var prop = props.at(p)
+
+                    var name = prop.getStr("name", "")
+                    if(strcmp(name, "isCollidable") == 0) {
+                        var isCollidable = prop.getStr("value", "false")
+                        if(isCollidable && (strcmp(isCollidable, "true") == 0)) {
+                            layer.flags |= LayerFlags.IS_COLLIDABLE
+                        }
+                    }
+                }
             }
 
-            var end: char*;
-            var tileId = strtoul(val, &end, 10) as (u32)            
-            val = end 
-
-            layer.tiles[index] = tileId
-            index += 1
+            layer.numOfTiles = (width * height)
+            layer.tiles = alloc.alloc(sizeof(u32) * layer.numOfTiles);
+            terrain.numOfLayers += 1
+            
+            var data = entry.getArray("data")
+            if(data) {
+                for(var t = 0; t < layer.numOfTiles; t += 1) {
+                    var tileId = data.at(t)
+                    if(tileId) {
+                        layer.tiles[t] = tileId.asLong()
+                    }
+                }
+            }
         }
     }
 }

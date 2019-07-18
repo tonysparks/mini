@@ -3,6 +3,7 @@ import "raylib"
 import "game"
 import "terrain"
 import "input_system"
+import "math"
 
 public struct GameCamera {
     camera: using Camera2D
@@ -20,7 +21,7 @@ public func (c: using GameCamera*) init() {
         .zoom: 1f,
     }
 
-    pos = Vec2{50, 50}
+    pos = Vec2{GetScreenWidth()/2f, GetScreenHeight()/2f}
     bounds = Rectangle{0,0,GetScreenWidth(), GetScreenHeight()}
 }
 
@@ -42,11 +43,14 @@ public func (c: GameCamera*) update(timeStep: TimeStep*, game: Game*) {
     var xDelta: f32 = d.x < 0 ? -1 : 1
     var xPos: f32 = c.pos.x
 
+    var halfWidth = GetScreenWidth() / 2f
+    var halfHeight = GetScreenHeight() / 2f
+
     while(xMove > 0) {
         xPos += xDelta
         c.bounds.x = xPos
 
-        if(game.terrain.rectCollides(&c.bounds)) {
+        if(!game.terrain.worldBounds.containsRect(&c.bounds) || xPos < halfWidth) {
             xPos -= xDelta
             break;
         }
@@ -65,7 +69,7 @@ public func (c: GameCamera*) update(timeStep: TimeStep*, game: Game*) {
         yPos += yDelta
         c.bounds.y = yPos
 
-        if(game.terrain.rectCollides(&c.bounds)) {
+        if(!game.terrain.worldBounds.containsRect(&c.bounds) || yPos < halfHeight ) {
             yPos -= yDelta
             break;
         }

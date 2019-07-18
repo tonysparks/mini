@@ -17,13 +17,12 @@ public struct StateModel {
     pos: Vec2
     offset: Vec2
     color: Color
-   // sprites: Array<Sprite>; Generics is totally broken :(
     sprites: [MAX_SPRITES]Sprite
     numOfSprites: i32
 }
 
 
-public func StateModelInit(m: StateModel*, frameTime: Time, numOfFrames: i32) {
+public func (m: StateModel*) init(frameTime: Time, numOfFrames: i32) {
     m.isFlipped = false
     m.pos.x = 0
     m.pos.y = 0
@@ -41,6 +40,6 @@ public func StateModelInit(m: StateModel*, frameTime: Time, numOfFrames: i32) {
     anim.isPaused = false;
 }
 
-public func StateModelReset(m: StateModel*) {
+public func (m: StateModel*) reset() {
     animationReset(&m.anim)
 }

@@ -9,7 +9,7 @@ import "terrain";
 import "camera";
 import "math";
 import "string_buffer";
-
+import "mem";
 import "gang";
 import "building";
 
@@ -76,14 +76,14 @@ public func GameInit() {
     game.gui.building = null
     game.gui.font = LoadFont("../assets/Consola.ttf")
 
-    var filename = "../assets/level2.txt"
+    var filename = "../assets/mini_city.json"
+        //"../assets/level2.txt"
     var data : char* = null
     var status = readFile(filename, &data);
     if(status != FileStatus.Ok) {
         log(LogLevel.FATAL, "*** Unable to open %s\n", filename)
     }
 
-    // TODO: Load terrain data
     game.terrain.init(data)
 
 
@@ -91,6 +91,13 @@ public func GameInit() {
     game.gangs[0].init("Three One's");
     game.gangs[1].init("Lord's");
     game.gangs[2].init("Disciple's");
+    game.numOfGangs = 3
+
+    var member = new<GangMember>()
+    member.init()
+
+    var gang = &game.gangs[0]
+    gang.addMember(member)
 
     game.buildings[0] = Building {
         .name: "4647 S. 31st St.",
@@ -112,12 +119,21 @@ public func GameDestroy() {
 
 public func GameUpdate(timeStep: TimeStep*) {
     game.camera.update(timeStep, &game)
+
+    for(var i = 0; i < game.numOfGangs; i += 1) {
+        var g = &game.gangs[i]
+        g.update(timeStep)
+    }
 }
 
 public func GameDraw() {
     BeginMode2D(game.camera.camera)
     {
         game.terrain.draw(&game.camera)
+        for(var i = 0; i < game.numOfGangs; i += 1) {
+            var g = &game.gangs[i]
+            g.draw()
+        }
     }
     EndMode2D()
 

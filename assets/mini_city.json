@@ -19,6 +19,12 @@
          "id":2,
          "name":"buildings",
          "opacity":1,
+         "properties":[
+                {
+                 "name":"isCollidable",
+                 "type":"string",
+                 "value":"true"
+                }],
          "type":"tilelayer",
          "visible":true,
          "width":50,
@@ -33,8 +39,17 @@
  "tileheight":32,
  "tilesets":[
         {
+         "columns":15,
          "firstgid":1,
-         "source":"../../../Desktop/Maps/affiliatedcity.tsx"
+         "image":"free_tileset_version_7.png",
+         "imageheight":736,
+         "imagewidth":480,
+         "margin":0,
+         "name":"city",
+         "spacing":0,
+         "tilecount":345,
+         "tileheight":32,
+         "tilewidth":32
         }],
  "tilewidth":32,
  "type":"map",
