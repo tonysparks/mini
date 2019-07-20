@@ -40,7 +40,8 @@ public struct Game {
 const game = Game{}
 
 func GameOnMouseEvent(event: MouseEvent*) : bool {   
-    var pos = Vector2Subtract(GetMousePosition(), game.camera.camera.offset) 
+    var pos = GetCursorPos()
+
     if (event.type == EventType.PRESSED && event.button == MouseButton.MOUSE_LEFT_BUTTON) {      
         for(var i = 0; i < game.numOfBuildings; i+=1) {
             var b = &game.buildings[i]
@@ -84,7 +85,7 @@ public func GameInit() {
         log(LogLevel.FATAL, "*** Unable to open %s\n", filename)
     }
 
-    game.terrain.init(data)
+    
 
 
     // TEMP
@@ -94,23 +95,40 @@ public func GameInit() {
     game.numOfGangs = 3
 
     var member = new<GangMember>()
-    member.init()
+    member.init(Vec2{10,1})
 
     var gang = &game.gangs[0]
     gang.addMember(member)
-
+    
+    /*
     game.buildings[0] = Building {
         .name: "4647 S. 31st St.",
-        .bounds: Rectangle{256, 192, 128, 160},
+        .entity: Entity {
+            .type = EntityType.BUILDING,
+            .bounds: Rectangle{256, 192, 128, 160},
+        },
         .loyalty: 32,
         .activities: (Activity.DRUGS|Activity.ARMS),
         .affiliated: &game.gangs[0],
     }
-    game.numOfBuildings = 1
+    game.numOfBuildings = 1 */
     // END TEMP
+
+    game.terrain.init(data, &game)
 
     InputSysRegisterMouseHandler(&GameOnMouseEvent)
     InputSysRegisterKeyboardHandler(&GameOnKeyEvent)
+}
+
+public func GameGetGang(str: char const*) : Gang* {
+    for(var i = 0; i < game.numOfGangs; i+=1) {
+        var g = &game.gangs[i]
+        if(strcmp(g.name, str) == 0) {
+            return g;
+        }
+    }
+
+    return null;
 }
 
 public func GameDestroy() {    
@@ -145,40 +163,131 @@ public func GameDraw() {
 }
 
 func DrawGui() {    
+    GuiFont(game.gui.font)
+    
+    DrawGangMemberInfoGui()
+    DrawBuildingInfoGui()
+}
+
+func GetCursorPos() : Vec2 {
+    var pos = Vector2Subtract(GetMousePosition(), game.camera.camera.offset) 
+    return pos
+}
+
+func GetLoyaltyColor(loyalty: i32) : i32 {
+    if(loyalty < 30) {
+        return 0xff0000ff
+    }
+    else if(loyalty < 60) {
+        return 0xffa500ff
+    }
+    else {
+        return 0x00ff00ff
+    }
+}
+
+
+func DrawGangMemberInfoGui() {
+    var pos = GetCursorPos()
+
+    var gangMember: GangMember* = null
+    for(var i = 0; i < game.numOfGangs; i+=1) {
+        var g = &game.gangs[i]
+        for(var m = 0; m < g.members.size(); m+=1) {
+            var member = g.members.get(m)
+            if(member.bounds.containsV(pos)) {
+                gangMember = member
+                goto skip;
+            }
+        }
+    }
+
+skip:
+    if(!gangMember) {
+        return;
+    }
+
+    var g = &game.gui
+
+    GuiSetStyle(GuiControl.LABEL, GuiControlProperty.TEXT_COLOR_NORMAL, 0x000000ff)
+    GuiSetStyle(GuiControl.DEFAULT, GuiDefaultProperty.TEXT_SIZE, 12)
+
+    var x = (gangMember.bounds.x - game.camera.camera.offset.x)
+    var y = (gangMember.bounds.y - game.camera.camera.offset.y) + 15
+
+    if(y < 40) {
+        y = 40
+    }
+
+    if(x < 10) {
+        x = 10
+    }
+
+    if(y > GetScreenHeight() - 100) {
+        y = GetScreenHeight() - 130
+    }
+
+    if(x > GetScreenWidth() - 250) {
+        x = GetScreenWidth() - 250
+    }
+
+    {
+        g.buffer.append("Loyalty:")
+        GuiLabel(Rectangle{ x+10, y+30, 100, 25 }, g.buffer.cStr()); 
+        g.buffer.clear()
+
+        GuiSetStyle(GuiControl.LABEL, GuiControlProperty.TEXT_COLOR_NORMAL, GetLoyaltyColor(gangMember.loyalty))
+        g.buffer.append("%d / 100", gangMember.loyalty)
+        GuiLabel(Rectangle{ x+130, y+30, 100, 25 }, g.buffer.cStr());
+        g.buffer.clear()
+    }
+
+    {
+        GuiSetStyle(GuiControl.LABEL, GuiControlProperty.TEXT_COLOR_NORMAL, 0x000000ff)
+        g.buffer.append("Affiliated with:")
+        GuiLabel(Rectangle{ x+10, y+50, 100, 25 }, g.buffer.cStr()); 
+        g.buffer.clear()
+
+        GuiSetStyle(GuiControl.LABEL, GuiControlProperty.TEXT_COLOR_NORMAL, 0xff0000ff)    
+        g.buffer.append("%s", (gangMember.affiliated != null) ? gangMember.affiliated.name as (char*) : "--")
+        GuiLabel(Rectangle{ x+130, y+50, 100, 25 }, g.buffer.cStr()); 
+        g.buffer.clear()
+    }
+}
+
+func DrawBuildingInfoGui() {
     var g = &game.gui
     if(g.closed || !g.building) {
         return;
     }
 
-    GuiFont(g.font)
     GuiSetStyle(GuiControl.LABEL, GuiControlProperty.TEXT_COLOR_NORMAL, 0x000000ff)
     GuiSetStyle(GuiControl.DEFAULT, GuiDefaultProperty.TEXT_SIZE, 12)
 
     g.closed = GuiWindowBox(Rectangle{ 5, 5, 240, 400 }, g.building.name);
     
-    //GuiCheckBox(Rectangle{ 25, 108, 15, 15 }, "Force Square", true);
+    {   
+        g.buffer.append("Loyalty:")
+        GuiLabel(Rectangle{ 10, 30, 100, 25 }, g.buffer.cStr()); 
+        g.buffer.clear()
 
-    
-    g.buffer.append("Loyalty to you:")
-    GuiLabel(Rectangle{ 10, 30, 100, 25 }, g.buffer.cStr()); 
-    g.buffer.clear()
+        GuiSetStyle(GuiControl.LABEL, GuiControlProperty.TEXT_COLOR_NORMAL, GetLoyaltyColor(g.building.loyalty))
+        g.buffer.append("%d / 100", g.building.loyalty)
+        GuiLabel(Rectangle{ 130, 30, 100, 25 }, g.buffer.cStr());
+        g.buffer.clear()
+    }
 
-    GuiSetStyle(GuiControl.LABEL, GuiControlProperty.TEXT_COLOR_NORMAL, 0xff0000ff)
-    g.buffer.append("%d / 100", g.building.loyalty)
-    GuiLabel(Rectangle{ 130, 30, 100, 25 }, g.buffer.cStr());
-    g.buffer.clear()
-    
-    GuiSetStyle(GuiControl.LABEL, GuiControlProperty.TEXT_COLOR_NORMAL, 0x000000ff)
-    g.buffer.append("Affiliated with:")
-    GuiLabel(Rectangle{ 10, 50, 100, 25 }, g.buffer.cStr()); 
-    g.buffer.clear()
+    {
+        GuiSetStyle(GuiControl.LABEL, GuiControlProperty.TEXT_COLOR_NORMAL, 0x000000ff)
+        g.buffer.append("Affiliated with:")
+        GuiLabel(Rectangle{ 10, 50, 100, 25 }, g.buffer.cStr()); 
+        g.buffer.clear()
 
-    
-    GuiSetStyle(GuiControl.LABEL, GuiControlProperty.TEXT_COLOR_NORMAL, 0xff0000ff)    
-    g.buffer.append("%s", (g.building.affiliated != null) ? g.building.affiliated.name as (char*) : "--")
-    GuiLabel(Rectangle{ 130, 50, 100, 25 }, g.buffer.cStr()); 
-    g.buffer.clear()
-
+        GuiSetStyle(GuiControl.LABEL, GuiControlProperty.TEXT_COLOR_NORMAL, 0xff0000ff)    
+        g.buffer.append("%s", (g.building.affiliated != null) ? g.building.affiliated.name as (char*) : "--")
+        GuiLabel(Rectangle{ 130, 50, 100, 25 }, g.buffer.cStr()); 
+        g.buffer.clear()
+    }
 
     var a = g.building.activities
     var x = 15
@@ -198,11 +307,4 @@ func DrawGui() {
     GuiCheckBox(Rectangle{ x, y, 15, 15 }, "Safe Haven", a & Activity.HAVEN);
     y += 25
     GuiUnlock()
-
-    //GuiLabel(Rectangle{ 0, 20, 100, 25 }, "test"); 
-    
-}
-
-func DrawBuildingInfoGui() {
-
 }

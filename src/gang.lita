@@ -6,20 +6,31 @@ import "animation"
 
 public const MAX_NAME = 32
 
-public struct Character {
+public enum EntityType {
+    GANG_MEMBER,
+    BYSTANDERD,
+    BUILDING,
+    CAR,
+}
+
+public struct Entity {
+    type: EntityType
     bounds: Rectangle
+}
+
+
+/**
+    Character attributes to
+    draw and orientate them
+*/    
+public struct Character {
+    entity: using Entity
 
     state: State
     dir: Direction
-
     texture: Texture2D
     model: [State.MAX][Direction.MAX]StateModel
 }
-
-/*
-public (c: Character*) draw() {
-
-}*/
 
 public enum State {
     IDLE,
@@ -41,20 +52,72 @@ public enum Direction {
 public struct GangMember {
     name: [MAX_NAME]char
     loyalty: i32
-    
+    affiliated: Gang*
+    weapon: Weapon
+
     character: using Character
 }
 
-public func (g: GangMember*) init(/*config: JsonNode* */) {
+public typedef i64 as USD
+
+public struct Gang {
+    name: [MAX_NAME]char
+    members: Array<GangMember*>
+    cash: USD
+}
+
+public struct WeaponStat {
+    damage: i32
+    accuracy: i32  // odds of landing damage
+}
+
+public const WeaponStats = [WeaponType.MAX]WeaponStat {
+    [WeaponType.FISTS] = WeaponStat {10, 30},
+    [WeaponType.KNIVE] = WeaponStat {40, 20},
+    [WeaponType.PISTOL] = WeaponStat {45, 60},
+    [WeaponType.AUTOMATIC] = WeaponStat {70, 90},
+}
+
+// How expansive do we want arms to be; at least
+// define grades (Knives, Pistols, Automatics)
+public enum WeaponType {
+    FISTS,
+    KNIVE,
+    PISTOL,
+    AUTOMATIC,
+
+    MAX
+}
+
+public struct Weapon {
+    type: WeaponType
+    cost: USD
+    stat: WeaponStat
+}
+
+
+/*
+=========================================
+Gang Member
+=========================================
+*/
+
+public func (g: GangMember*) init(pos: Vec2/*config: JsonNode* */) {
     // TODO: Create Asset Manager
     var tex = LoadTexture("../assets/images/members.png");
     var COLS = 12
     var ROWS = 8
 
-    g.bounds.x = 20
-    g.bounds.y = 20
+    g.type = EntityType.GANG_MEMBER
+    g.bounds.x = pos.x
+    g.bounds.y = pos.y
     g.bounds.width = tex.width / COLS
     g.bounds.height = tex.height / ROWS
+
+    g.loyalty = 0
+    g.weapon.type = WeaponType.FISTS
+    g.weapon.cost = 0
+    g.weapon.stat = WeaponStats[WeaponType.FISTS]
 
     g.texture = tex
     g.state = State.IDLE
@@ -148,18 +211,23 @@ public func (g: GangMember*) draw() {
     }    
 }
 
-public struct Gang {
-    name: [MAX_NAME]char
-    members: Array<GangMember*>
-}
+
+/*
+=========================================
+Gang
+=========================================
+*/
 
 public func (g: Gang*) init(name: char const*) {
     strncpy(g.name, name, MAX_NAME)
     g.members.init(16)
+
+    g.cash = 1_000 // some seed money's
 }
 
 public func (g: Gang*) addMember(member: GangMember*) {
     g.members.add(member)
+    member.affiliated = g
 }
 
 public func (g: Gang*) destroy() {

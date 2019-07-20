@@ -3,7 +3,7 @@ import "raylib";
 
 @include("<stdarg.h>");
 @include("<stdio.h>");
-
+@include("<math.h>");
 
 @raw("""
     #define MIN(x, y) ((x) <= (y) ? (x) : (y))
@@ -38,9 +38,14 @@ import "raylib";
 @foreign public func strtoul(str: char const*, end: char**, base: i32) : u64;
 @foreign public func strtod(str: char const*, end: char**) : f64;
 
+// Math operations
+
 @foreign public func MAX(a: i32, b: i32) : i32;
 @foreign public func MIN(a: i32, b: i32) : i32;
 @foreign public func ABS(a: f32) : f32;
+@foreign public func sqrt(v: f64) : f64;
+@foreign public func cos(v: f64) : f64;
+@foreign public func sin(v: f64) : f64;
 
 
 public typedef i64 as Time;

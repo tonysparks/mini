@@ -1,0 +1,20 @@
+import "common"
+import "gang"
+
+/**
+    Commands we can issue to gang members
+*/    
+public enum CommandType {
+    ROB,
+    ATTACK,        
+}
+
+public struct Command {
+    type: CommandType
+
+    union {
+        struct RobCommand {
+            target: Entity*
+        }
+    }
+}

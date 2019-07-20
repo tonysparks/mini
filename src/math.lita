@@ -1,4 +1,103 @@
 import "raylib"
+import "common"
+
+@inline
+public func (v: Vec2*) add(b: Vec2) {
+    v.x += b.x
+    v.y += b.y
+}
+
+@inline
+public func (v: Vec2*) sub(b: Vec2) {
+    v.x -= b.x
+    v.y -= b.y
+}
+
+@inline
+public func (v: Vec2*) mult(b: Vec2) {
+    v.x *= b.x
+    v.y *= b.y
+}
+
+@inline
+public func (v: Vec2*) scale(s: f32) {
+    v.x *= s
+    v.y *= s
+}
+
+@inline
+public func (v: Vec2*) asZero() {
+    v.x = 0
+    v.y = 0
+}
+
+@inline
+public func (v: Vec2*) asRight() {
+    v.x = 1
+    v.y = 0
+}
+
+@inline
+public func (v: Vec2*) setV(b: Vec2) {
+    v.x = b.x
+    v.y = b.y
+}
+
+@inline
+public func (v: Vec2*) set(x: f32, y: f32) {
+    v.x = x
+    v.y = y
+}
+
+@inline
+public func (v: Vec2*) normalize(b: Vec2) {
+    var len = sqrt(v.x * v.x + v.y * v.y)
+    if(len == 0) {
+        return;
+    }
+
+    len = 1.0f / len;
+    v.x *= len
+    v.y *= len
+}
+
+@inline
+public func (v: Vec2*) len() : f32 {
+    var len = sqrt(v.x * v.x + v.y * v.y)
+    return len
+}
+
+@inline
+public func (v: Vec2*) len2() : f32 {
+    return v.x * v.x + v.y * v.y    
+}
+
+@inline
+public func (v: Vec2*) rotate(radians: f32) {
+    var x1 = v.x * cos(radians) - v.y * sin(radians);
+    var y1 = v.x * sin(radians) + v.y * cos(radians);
+
+    v.x = x1
+    v.y = y1
+}
+
+@inline
+public func (v: Vec2*) ma(scale: f32, b: Vec2) {
+    var x1 = b.x * scale
+    var y1 = b.y * scale
+
+    v.x += x1
+    v.y += y1
+}
+
+@inline
+public func (v: Vec2*) ms(scale: f32, b: Vec2) {
+    var x1 = b.x * scale
+    var y1 = b.y * scale
+
+    v.x -= x1
+    v.y -= y1
+}
 
 @inline
 public func (r: Rectangle*) intersectsRect(b: Rectangle*) : bool {

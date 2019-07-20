@@ -17,9 +17,9 @@ public enum Activity {
 }
 
 public struct Building {    
+    entity: using Entity
     name: [MAX_NAME]char
-    affiliated: Gang*
-    bounds: using Rectangle
+    affiliated: Gang*    
     loyalty: i32
     activities: i32
 }

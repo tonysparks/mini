@@ -2,10 +2,12 @@ import "common"
 import "mem"
 import "raylib"
 import "config"
-//import "game"
+import "game"
 import "camera"
 import "json"
 import "io"
+import "building"
+import "gang"
 
 enum TerrainFlag {
     FLIPPED_HORIZONTALLY = 0x80000000,
@@ -62,6 +64,7 @@ public struct Terrain {
 }
 
 public func (terrain: Terrain*) init(rawdata: char const*,
+                                     game: Game*,
                                      alloc: Allocator const* = null) {
 
     if(!alloc) {
@@ -144,41 +147,80 @@ public func (terrain: Terrain*) init(rawdata: char const*,
 
     var layers = node.getArray("layers")
     if(layers) {
+        var layerId = 0
         for(var i = 0; i < MAX_LAYERS && i < layers.size(); i+=1) {
             var entry = layers.at(i)
             if(!entry) {
                 break;
             }
-            
-            var layer = &terrain.layers[i]
-            var name = entry.getStr("name", "")
-            strncpy(layer.name as (void*), name as (void*), MAX_LAYER_NAME)
-            
-            var props = entry.getArray("properties")
-            if(props) {
-                for(var p = 0; p < props.size(); p += 1) {
-                    var prop = props.at(p)
 
-                    var name = prop.getStr("name", "")
-                    if(strcmp(name, "isCollidable") == 0) {
-                        var isCollidable = prop.getStr("value", "false")
-                        if(isCollidable && (strcmp(isCollidable, "true") == 0)) {
-                            layer.flags |= LayerFlags.IS_COLLIDABLE
+            var type = entry.getStr("type", "")
+            if(strcmp(type, "objectgroup") == 0) {
+                var objects = entry.getArray("objects")
+                if(!objects) {
+                    continue;
+                }
+
+                
+                for(var o = 0; o < objects.size(); o += 1) {
+                    var object = objects.at(o)
+                    var objectType = object.getStr("type", "")
+                    if(strcmp(objectType, "building") == 0) {
+                        game.buildings[game.numOfBuildings] = Building {
+                            //.name: object.getStr("name", "Unknown"),
+                            .entity: Entity {
+                                .type = EntityType.BUILDING,
+                                .bounds: Rectangle{object.getInt("x", 0), 
+                                                   object.getInt("y", 0), 
+                                                   object.getInt("width", 0), 
+                                                   object.getInt("height", 0)
+                                },
+                            },
+                            .loyalty: object.getInt("loyalty", 0),
+                            .activities: 0,
+                            .affiliated: GameGetGang(object.getStr("affiliated", "")),
+                        }
+                        var b = &game.buildings[game.numOfBuildings]
+                        object.getStrCopy("name", b.name, MAX_NAME)
+
+                        game.numOfBuildings += 1
+                    }
+                }
+
+            }
+            else if(strcmp(type, "tilelayer") == 0) {
+                var layer = &terrain.layers[layerId];
+                layerId += 1
+
+                var name = entry.getStr("name", "")
+                strncpy(layer.name as (void*), name as (void*), MAX_LAYER_NAME)
+                
+                var props = entry.getArray("properties")
+                if(props) {
+                    for(var p = 0; p < props.size(); p += 1) {
+                        var prop = props.at(p)
+
+                        var name = prop.getStr("name", "")
+                        if(strcmp(name, "isCollidable") == 0) {
+                            var isCollidable = prop.getStr("value", "false")
+                            if(isCollidable && (strcmp(isCollidable, "true") == 0)) {
+                                layer.flags |= LayerFlags.IS_COLLIDABLE
+                            }
                         }
                     }
                 }
-            }
 
-            layer.numOfTiles = (width * height)
-            layer.tiles = alloc.alloc(sizeof(u32) * layer.numOfTiles);
-            terrain.numOfLayers += 1
-            
-            var data = entry.getArray("data")
-            if(data) {
-                for(var t = 0; t < layer.numOfTiles; t += 1) {
-                    var tileId = data.at(t)
-                    if(tileId) {
-                        layer.tiles[t] = tileId.asLong()
+                layer.numOfTiles = (width * height)
+                layer.tiles = alloc.alloc(sizeof(u32) * layer.numOfTiles);
+                terrain.numOfLayers += 1
+                
+                var data = entry.getArray("data")
+                if(data) {
+                    for(var t = 0; t < layer.numOfTiles; t += 1) {
+                        var tileId = data.at(t)
+                        if(tileId) {
+                            layer.tiles[t] = tileId.asLong()
+                        }
                     }
                 }
             }
