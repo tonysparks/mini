@@ -53,8 +53,24 @@ public func GameInit() {
 
     game.position = Vec3{ 0.0f, 0.0f, 0.0f };            // Set model position
 
+    /*
+    var model = &game.model
+    for(var i = 0; i < game.model.boneCount; i += 1) {
+        var y = game.model.bindPose[i].translation.y
+        model.bindPose[i].translation.y = model.bindPose[i].translation.z
+        model.bindPose[i].translation.z = y
+
+        y = model.bindPose[i].rotation.y
+        model.bindPose[i].rotation.y = model.bindPose[i].rotation.z
+        model.bindPose[i].rotation.z = y
+
+        y = model.bindPose[i].scale.y
+        model.bindPose[i].scale.y = model.bindPose[i].scale.z
+        model.bindPose[i].scale.z = y
+    }*/
+
     // Load animation data    
-    game.anims = LoadModelAnimations("../assets/models/idle.iqm", &game.numOfAnimations);
+    game.anims = LoadModelAnimations("../assets/models/idle3.iqm", &game.numOfAnimations);
     game.animationFrame = 0;    
 }
 
@@ -67,7 +83,8 @@ public func GameUpdate(timeStep: TimeStep*) {
     UpdateCamera(&game.camera)
 
     game.animationFrame += 1
-    //UpdateModelAnimation(game.model, game.anims[0], game.animationFrame);
+    //game.animationFrame = 0
+    UpdateModelAnimation(game.model, game.anims[0], game.animationFrame);
     if (game.animationFrame >= game.anims[0].frameCount) {
         game.animationFrame = 0;
     }
@@ -78,5 +95,7 @@ public func GameDraw() {
     defer EndMode3D()
     
     DrawGrid(10, 1.0f);
-    DrawModelEx(game.model, game.position, Vec3{ 1.0f, 0.0f, 0.0f }, -90.0f, Vec3{ 1.0f, 1.0f, 1.0f }, WHITE);
+    var scale = 0.05f
+    DrawModelEx(game.model, game.position, Vec3{ 1.0f, 0.0f, 0.0f }, -90.0f, Vec3{ scale, scale, scale }, WHITE);
+    //DrawModelWiresEx(game.model, game.position, Vec3{ 1.0f, 0.0f, 0.0f }, -90.0f, Vec3{ scale, scale, scale }, WHITE);
 }
