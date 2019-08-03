@@ -190,6 +190,9 @@ public func (g: GangMember*) init(pos: Vec2/*config: JsonNode* */) {
     }        
 }
 
+public func (g: GangMember*) destroy() {
+}
+
 public func (g: GangMember*) update(timeStep: TimeStep*) {
     var m = &g.model[g.state][g.dir]
     var anim = &m.anim
@@ -233,7 +236,9 @@ public func (g: Gang*) addMember(member: GangMember*) {
 public func (g: Gang*) destroy() {
     for(var i = 0; i < g.members.size(); i+=1) {
         var m = g.members.get(i)
-        // m.free()
+        m.destroy()
+
+        // TODO: free m
     }
     g.members.free()
 }

@@ -85,8 +85,6 @@ public func GameInit() {
         log(LogLevel.FATAL, "*** Unable to open %s\n", filename)
     }
 
-    
-
 
     // TEMP
     game.gangs[0].init("Three One's");
@@ -133,6 +131,13 @@ public func GameGetGang(str: char const*) : Gang* {
 
 public func GameDestroy() {    
     game.terrain.destroy()
+    game.gui.buffer.free()
+
+    for(var i = 0; i < game.numOfGangs; i+=1) {
+        var g = &game.gangs[i]
+        g.destroy()
+    }
+
 }
 
 public func GameUpdate(timeStep: TimeStep*) {
@@ -144,14 +149,18 @@ public func GameUpdate(timeStep: TimeStep*) {
     }
 }
 
+
+
+
 public func GameDraw() {
     BeginMode2D(game.camera.camera)
     {
-        game.terrain.draw(&game.camera)
+        game.terrain.draw(&game.camera)            
         for(var i = 0; i < game.numOfGangs; i += 1) {
             var g = &game.gangs[i]
             g.draw()
         }
+        
     }
     EndMode2D()
 

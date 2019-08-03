@@ -1,0 +1,10 @@
+import "common"
+
+public struct Path {
+
+}
+
+
+public func FindPath(terrain: Terrain*, start: Vec2, dest: Vec2) {
+    
+}

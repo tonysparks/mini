@@ -13,7 +13,7 @@ const MAX_INPUT_BUFFER = 128
 const MAX_TEXT_LINES = 256
 const MAX_COMMAND_NAME = 32
 
-const CMD_MAX_HEIGHT = 100
+const CMD_MAX_HEIGHT = 200
 const CMD_MIN_HEIGHT = -40
 const CMD_BLINK_TIME = 200
 const CMD_CLOSE_SPEED = 15
@@ -73,17 +73,17 @@ const fontColor = Color {
 }
 
 const backgroundColor = Color {
-    .r = 255_u8,
-    .g = 255_u8,
-    .b = 255_u8,
-    .a = 80_u8
+    .r = 55_u8,
+    .g = 55_u8,
+    .b = 55_u8,
+    .a = 180_u8
 };
 
 const inputBgColor = Color {
-    .r = 205_u8,
-    .g = 205_u8,
-    .b = 205_u8,
-    .a = 120_u8
+    .r = 05_u8,
+    .g = 05_u8,
+    .b = 05_u8,
+    .a = 210_u8
 };
 
 const outlineColor = Color {

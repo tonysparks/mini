@@ -12,6 +12,11 @@ import "string_buffer";
 import "json";
 
 var isRunning = false;
+var windowScreenWidth = 640
+var windowScreenHeight = 480
+var gameScreenWidth = 640
+var gameScreenHeight = 480
+var frameBuffer: RenderTexture2D
 
 func CmdQuit(args: char const*) {
     isRunning = false;
@@ -24,6 +29,27 @@ func Update(timeStep: TimeStep*) {
     GameUpdate(timeStep)
 }
 
+func DrawFrameBuffer() {
+    // Draw RenderTexture2D to window, properly scaled
+    var tex = frameBuffer.texture
+    var scale = MIN( (GetScreenWidth()  as (f32) / gameScreenWidth  as (f32)) as (f32), 
+                     (GetScreenHeight() as (f32) / gameScreenHeight as (f32)) as (f32))
+
+
+    var w = gameScreenWidth  as (f32) * scale
+    var h = gameScreenHeight as (f32) * scale
+
+    var x = (GetScreenWidth()  - w) * 0.5f
+    var y = (GetScreenHeight() - h) * 0.5f
+
+    DrawTexturePro(tex, 
+                  Rectangle { 0.0f, 0.0f, tex.width as (f32), -tex.height as (f32) },
+                  Rectangle { x, y, w, h },                   
+                  Vec2 { 0, 0 }, 
+                  0.0f, 
+                  WHITE);
+}
+
 func Draw() {
     GameDraw();
     ConsoleDraw();
@@ -32,7 +58,7 @@ func Draw() {
 func main(len: i32, args: char**) : i32 {
     SetConfigFlags(ConfigFlag.FLAG_WINDOW_RESIZABLE|ConfigFlag.FLAG_VSYNC_HINT)
 
-    InitWindow(800, 450, "Mini-Game");
+    InitWindow(windowScreenWidth, windowScreenHeight, "Mini-Game");
     defer CloseWindow();
     
     InitAudioDevice();
@@ -53,6 +79,10 @@ func main(len: i32, args: char**) : i32 {
     GameInit();
     defer GameDestroy();
 
+    frameBuffer = LoadRenderTexture(gameScreenWidth, gameScreenHeight)    
+    defer UnloadRenderTexture(frameBuffer)
+
+    SetTextureFilter(frameBuffer.texture, TextureFilterMode.FILTER_BILINEAR)
 
 
     SetTargetFPS(133);
@@ -101,9 +131,14 @@ func main(len: i32, args: char**) : i32 {
             }
         }       
         
-        BeginDrawing();
-            ClearBackground(BLACK);
-            Draw();
-        EndDrawing();
+        BeginTextureMode(frameBuffer)
+            ClearBackground(BLACK)
+            Draw()
+        EndTextureMode()
+
+        BeginDrawing()
+            ClearBackground(BLACK)
+            DrawFrameBuffer()
+        EndDrawing()
     }    
 }
