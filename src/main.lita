@@ -14,8 +14,6 @@ import "json";
 var isRunning = false;
 var windowScreenWidth = 640
 var windowScreenHeight = 480
-var gameScreenWidth = 640
-var gameScreenHeight = 480
 var frameBuffer: RenderTexture2D
 
 func CmdQuit(args: char const*) {

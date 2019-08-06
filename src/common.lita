@@ -50,6 +50,13 @@ import "raylib";
 @foreign public func sin(v: f64) : f64;
 
 
+/*----------------------------------------
+ Game Screen Dimensions 
+ ----------------------------------------
+*/
+public const gameScreenWidth = 640
+public const gameScreenHeight = 480
+
 public typedef i64 as Time;
 
 public typedef Vector2 as Vec2;

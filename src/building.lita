@@ -1,6 +1,7 @@
 import "common"
 import "raylib"
 
+import "entity"
 import "gang"
 
 /**

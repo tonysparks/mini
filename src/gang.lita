@@ -3,59 +3,17 @@ import "raylib"
 import "array"
 import "model"
 import "animation"
+import "entity"
 
-public const MAX_NAME = 32
-
-public enum EntityType {
-    GANG_MEMBER,
-    BYSTANDERD,
-    BUILDING,
-    CAR,
-}
-
-public struct Entity {
-    type: EntityType
-    bounds: Rectangle
-}
-
-
-/**
-    Character attributes to
-    draw and orientate them
-*/    
-public struct Character {
-    entity: using Entity
-
-    state: State
-    dir: Direction
-    texture: Texture2D
-    model: [State.MAX][Direction.MAX]StateModel
-}
-
-public enum State {
-    IDLE,
-    WALKING,
-    // others
-
-    MAX
-}
-
-public enum Direction {
-    NORTH,
-    EAST,
-    SOUTH,
-    WEST,
-
-    MAX
-}
 
 public struct GangMember {
+    character: using Character
+    
     name: [MAX_NAME]char
     loyalty: i32
     affiliated: Gang*
     weapon: Weapon
 
-    character: using Character
 }
 
 public typedef i64 as USD

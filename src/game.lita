@@ -10,6 +10,7 @@ import "camera";
 import "math";
 import "string_buffer";
 import "mem";
+import "entity";
 import "gang";
 import "building";
 
@@ -35,6 +36,8 @@ public struct Game {
 
     gangs: [MAX_GANGS]Gang
     numOfGangs: i32
+
+    selectedUnit: Entity*
 }
 
 const game = Game{}
@@ -42,14 +45,38 @@ const game = Game{}
 func GameOnMouseEvent(event: MouseEvent*) : bool {   
     var pos = GetCursorPos()
 
-    if (event.type == EventType.PRESSED && event.button == MouseButton.MOUSE_LEFT_BUTTON) {      
-        for(var i = 0; i < game.numOfBuildings; i+=1) {
-            var b = &game.buildings[i]
-            if(b.bounds.containsV(pos)) {
-                game.gui.building = b
-                game.gui.closed = false
+    if (event.type == EventType.PRESSED && event.button == MouseButton.MOUSE_LEFT_BUTTON) {  
+        if(GameSelectEntity(pos)) {
+            return true
+        }
+        else {
+            game.selectedUnit = null
+        }
+    }
+
+    return false
+}
+
+func GameSelectEntity(pos: Vec2) : bool {
+
+    for(var i = 0; i < game.numOfGangs; i+=1) {
+        var g = &game.gangs[i]
+        for(var m = 0; m < g.members.size(); m+=1) {
+            var member = g.members.get(m)
+            if(member.bounds.containsV(pos)) {                
+                game.selectedUnit = &member.entity
                 return true
             }
+        }
+    }
+
+    for(var i = 0; i < game.numOfBuildings; i+=1) {
+        var b = &game.buildings[i]
+        if(b.bounds.containsV(pos)) {
+            game.gui.building = b
+            game.gui.closed = false
+            game.selectedUnit = &b.entity
+            return true
         }
     }
 
@@ -85,6 +112,7 @@ public func GameInit() {
         log(LogLevel.FATAL, "*** Unable to open %s\n", filename)
     }
 
+    game.selectedUnit = null
 
     // TEMP
     game.gangs[0].init("Three One's");
@@ -176,6 +204,7 @@ func DrawGui() {
     
     DrawGangMemberInfoGui()
     DrawBuildingInfoGui()
+    DrawAvailableCommands()
 }
 
 func GetCursorPos() : Vec2 {
@@ -195,6 +224,38 @@ func GetLoyaltyColor(loyalty: i32) : i32 {
     }
 }
 
+
+func DrawAvailableCommands() {
+    if(game.selectedUnit == null) {
+        return;
+    }
+    
+    var g = &game.gui
+    var x = 10
+    var y = 115
+
+
+    GuiSetStyle(GuiControl.LABEL, GuiControlProperty.TEXT_COLOR_NORMAL, 0x000000ff)
+    GuiSetStyle(GuiControl.DEFAULT, GuiDefaultProperty.TEXT_SIZE, 12)
+
+    var isClosed = GuiWindowBox(Rectangle{ gameScreenWidth - 250, 5, 240, 400 }, "Available Commands");
+    if(isClosed) {
+        game.selectedUnit = null;
+        return;
+    }
+
+    {
+        GuiSetStyle(GuiControl.LABEL, GuiControlProperty.TEXT_COLOR_NORMAL, 0x000000ff)
+        g.buffer.append("Name:")
+        GuiLabel(Rectangle{ x+10, y+50, 100, 25 }, g.buffer.cStr()); 
+        g.buffer.clear()
+
+        GuiSetStyle(GuiControl.LABEL, GuiControlProperty.TEXT_COLOR_NORMAL, 0xff0000ff)    
+        g.buffer.append("%s", EntityTypeAsStr(game.selectedUnit.type))
+        GuiLabel(Rectangle{ x+130, y+50, 100, 25 }, g.buffer.cStr()); 
+        g.buffer.clear()
+    }
+}
 
 func DrawGangMemberInfoGui() {
     var pos = GetCursorPos()

@@ -8,6 +8,7 @@ import "json"
 import "io"
 import "building"
 import "gang"
+import "entity"
 
 enum TerrainFlag {
     FLIPPED_HORIZONTALLY = 0x80000000,
