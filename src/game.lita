@@ -70,7 +70,7 @@ public func GameInit() {
     }*/
 
     // Load animation data    
-    game.anims = LoadModelAnimations("../assets/models/idle3.iqm", &game.numOfAnimations);
+    game.anims = LoadModelAnimations("../assets/models/idle.iqm", &game.numOfAnimations);
     game.animationFrame = 0;    
 }
 
