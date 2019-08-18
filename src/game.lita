@@ -15,6 +15,9 @@ public struct Game {
     animationFrame: i32
     texture: Texture2D
     position: Vec3
+
+    models: [16]Model
+    skybox: Model
 }
 
 const game = Game{}
@@ -29,8 +32,8 @@ func GameOnKeyEvent(event: KeyEvent*) : bool {
 
 public func GameInit() {
     game.camera = Camera {
-        .position = Vec3{ 10.0f, 10.0f, 10.0f }, // Camera position
-        .target = Vec3{ 0.0f, 0.0f, 0.0f },      // Camera looking at point
+        .position = Vec3{ 1.0f, 1.0f, 1.0f }, // Camera position
+        .target = Vec3{ 4.0f, 1.0f, 4.0f },      // Camera looking at point
         .up = Vec3{ 0.0f, 1.0f, 0.0f },          // Camera up vector (rotation towards target)
         .fovy = 45.0f,                           // Camera field-of-view Y
         .type = CameraType.CAMERA_PERSPECTIVE,              // Camera mode type
@@ -42,7 +45,7 @@ public func GameInit() {
     InputSysRegisterMouseHandler(&GameOnMouseEvent)
     InputSysRegisterKeyboardHandler(&GameOnKeyEvent)
 
-
+/*
     game.model = LoadModel("../assets/models/output.iqm");               // Load the animated model mesh and basic data    
     game.texture = LoadTexture("../assets/models/us_infantry.png");    // Load model texture and set material
     SetMaterialTexture(&game.model.materials[0], 
@@ -52,7 +55,7 @@ public func GameInit() {
 
 
     game.position = Vec3{ 0.0f, 0.0f, 0.0f };            // Set model position
-
+*/
     /*
     var model = &game.model
     for(var i = 0; i < game.model.boneCount; i += 1) {
@@ -70,8 +73,38 @@ public func GameInit() {
     }*/
 
     // Load animation data    
+/*    
     game.anims = LoadModelAnimations("../assets/models/idle.iqm", &game.numOfAnimations);
     game.animationFrame = 0;    
+*/    
+
+    // skybox
+    game.skybox = LoadModelFromMesh(GenMeshCube(1000.0f, 1000.0f, 1000.0f));
+    var skybox = &game.skybox;
+
+    skybox.materials[0].shader 
+            = LoadShader("../assets/shaders/skybox.vs", "../assets/shaders/skybox.fs");
+
+    var map = [1] i32 {
+        MaterialMapType.MAP_CUBEMAP
+    }
+    SetShaderValue(skybox.materials[0].shader, GetShaderLocation(skybox.materials[0].shader, "environmentMap"), map as (void const*), ShaderUniformDataType.UNIFORM_INT);
+    var shdrCubemap = LoadShader("../assets/shaders/cubemap.vs", "../assets/shaders/cubemap.fs");
+
+    var n = [1] i32 {0}
+    SetShaderValue(shdrCubemap, GetShaderLocation(shdrCubemap, "equirectangularMap"), n as (void const*), ShaderUniformDataType.UNIFORM_INT);
+
+    var texHDR = LoadTexture("../assets/grass.hdr");
+    skybox.materials[0].maps[MaterialMapType.MAP_CUBEMAP].texture = GenTextureCubemap(shdrCubemap, texHDR, 512);
+
+
+    game.models[0] = LoadModel("../assets/cube.obj")
+    game.position = Vec3{ 0.0f, 0.0f, 0.0f };            // Set model position
+
+    game.texture = LoadTexture("../assets/color.png");    // Load model texture and set material
+    SetMaterialTexture(&game.models[0].materials[0], 
+                      MaterialMapType.MAP_ALBEDO, 
+                      game.texture);  // Set model material map texture
 }
 
 public func GameDestroy() {
@@ -82,20 +115,26 @@ public func GameDestroy() {
 public func GameUpdate(timeStep: TimeStep*) {
     UpdateCamera(&game.camera)
 
+    /*
     game.animationFrame += 1
     //game.animationFrame = 0
     UpdateModelAnimation(game.model, game.anims[0], game.animationFrame);
     if (game.animationFrame >= game.anims[0].frameCount) {
         game.animationFrame = 0;
-    }
+    }*/
 }
 
 public func GameDraw() {
     BeginMode3D(game.camera)
     defer EndMode3D()
     
-    DrawGrid(10, 1.0f);
-    var scale = 0.05f
-    DrawModelEx(game.model, game.position, Vec3{ 1.0f, 0.0f, 0.0f }, -90.0f, Vec3{ scale, scale, scale }, WHITE);
+    
+    //var scale = 0.05f
+    //DrawModelEx(game.model, game.position, Vec3{ 1.0f, 0.0f, 0.0f }, -90.0f, Vec3{ scale, scale, scale }, WHITE);
     //DrawModelWiresEx(game.model, game.position, Vec3{ 1.0f, 0.0f, 0.0f }, -90.0f, Vec3{ scale, scale, scale }, WHITE);
+
+    DrawModel(game.skybox, Vector3{0, 0, 0}, 1.0f, WHITE);
+    DrawGrid(10, 1.0f);
+    DrawModel(game.models[0], game.position, 1.0f, WHITE);
+    
 }

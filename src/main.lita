@@ -6,16 +6,6 @@ import "console";
 import "game";
 import "script_system";
 
-@raw("""
-#if defined(SUPPORT_FILEFORMAT_IQM)
-int isDefined = 1;
-#else
-int isDefined = 0;
-#endif
-""");
-
-@foreign var isDefined : bool;
-
 var isRunning = false;
 
 func CmdQuit(args: char const*) {
@@ -36,10 +26,6 @@ func Draw() {
 
 func main(len: i32, args: char**) : i32 {
     SetConfigFlags(ConfigFlag.FLAG_WINDOW_RESIZABLE|ConfigFlag.FLAG_VSYNC_HINT)
-
-    if(isDefined) {
-        printf("It is defined******************************\n")
-    }
 
     InitWindow(800, 450, "Mini-Game");
     defer CloseWindow();
