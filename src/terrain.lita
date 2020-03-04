@@ -121,7 +121,7 @@ public func (terrain: Terrain*) init(rawdata: char const*,
         }
     }
 
-    terrain.tileCache = terrain.alloc.alloc(sizeof(Tile) * maxTiles)
+    terrain.tileCache = terrain.alloc.alloc(sizeof(:Tile) * maxTiles) as (Tile*)
     var cacheIndex = 0
     for(var i = 0; i < terrain.numOfTileSets; i+=1) {
         var tileSet = &terrain.tileSets[i]
@@ -194,7 +194,7 @@ public func (terrain: Terrain*) init(rawdata: char const*,
                 layerId += 1
 
                 var name = entry.getStr("name", "")
-                strncpy(layer.name as (void*), name as (void*), MAX_LAYER_NAME)
+                strncpy(layer.name, name, MAX_LAYER_NAME)
                 
                 var props = entry.getArray("properties")
                 if(props) {
@@ -212,7 +212,7 @@ public func (terrain: Terrain*) init(rawdata: char const*,
                 }
 
                 layer.numOfTiles = (width * height)
-                layer.tiles = alloc.alloc(sizeof(u32) * layer.numOfTiles);
+                layer.tiles = alloc.alloc(sizeof(:u32) * layer.numOfTiles) as (u32*);
                 terrain.numOfLayers += 1
                 
                 var data = entry.getArray("data")
@@ -220,7 +220,7 @@ public func (terrain: Terrain*) init(rawdata: char const*,
                     for(var t = 0; t < layer.numOfTiles; t += 1) {
                         var tileId = data.at(t)
                         if(tileId) {
-                            layer.tiles[t] = tileId.asLong()
+                            layer.tiles[t] = tileId.asLong() as (u32)
                         }
                     }
                 }

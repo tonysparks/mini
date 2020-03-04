@@ -5,3 +5,4 @@ lib/*.lib
 bin/mini.exp
 bin/mini.lib
 bin/mini.pdb
+litac-lsp.log

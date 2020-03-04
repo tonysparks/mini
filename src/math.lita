@@ -57,14 +57,14 @@ public func (v: Vec2*) normalize(b: Vec2) {
     }
 
     len = 1.0f / len;
-    v.x *= len
-    v.y *= len
+    v.x *= len as (f32)
+    v.y *= len as (f32)
 }
 
 @inline
 public func (v: Vec2*) len() : f32 {
     var len = sqrt(v.x * v.x + v.y * v.y)
-    return len
+    return len as (f32)
 }
 
 @inline

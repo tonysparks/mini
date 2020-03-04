@@ -13,6 +13,7 @@ import "mem";
 import "entity";
 import "gang";
 import "building";
+import "array";
 
 public const MAX_BUILDINGS = 32
 public const MAX_GANGS = 4
@@ -107,7 +108,7 @@ public func GameInit() {
     var filename = "../assets/mini_city.json"
         //"../assets/level2.txt"
     var data : char* = null
-    var status = readFile(filename, &data);
+    var status = ReadFile(filename, &data);
     if(status != FileStatus.Ok) {
         log(LogLevel.FATAL, "*** Unable to open %s\n", filename)
     }

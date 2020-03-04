@@ -277,7 +277,7 @@ public func ConfigEntryAsString(entry: ConfigEntry*, str: char*, max: i32) : i32
     memcpy(str as (void*), entry.value.start as (void*), len);
     str[len] = '\0'
 
-    return len;
+    return len as (i32);
 }
 
 public func ConfigPrint(config: Config*) {    

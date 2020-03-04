@@ -100,7 +100,7 @@ public func ScriptRunFile(filename: char const*) : bool {
     var buf: char* = null;
     defer if(buf) cAllocator.free(buf as (void*))
 
-    var status = readFile(filename, &buf, cAllocator)
+    var status = ReadFile(filename, &buf, cAllocator)
     if(status) {
         return false;
     }

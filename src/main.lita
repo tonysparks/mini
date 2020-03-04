@@ -54,7 +54,7 @@ func Draw() {
 }
 
 func main(len: i32, args: char**) : i32 {
-    SetConfigFlags(ConfigFlag.FLAG_WINDOW_RESIZABLE|ConfigFlag.FLAG_VSYNC_HINT)
+    SetConfigFlags((ConfigFlag.FLAG_WINDOW_RESIZABLE|ConfigFlag.FLAG_VSYNC_HINT) as (u8))
 
     InitWindow(windowScreenWidth, windowScreenHeight, "Mini-Game");
     defer CloseWindow();
